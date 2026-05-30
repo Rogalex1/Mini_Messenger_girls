@@ -85,6 +85,8 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
+const router = useRouter();
 
 const auth = useAuthStore()
 
@@ -100,7 +102,7 @@ async function handleLogin() {
   loading.value = true
 
   const result = await auth.login(form)
-
+  router.push("/sessionSlide")
   if (!result.success) {
     if (result.errors?.errors) {
       errors.value = result.errors.errors
