@@ -1,11 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import SessionSlideView from '@/Views/SessionSlideView.vue'
 
 const routes = [
   // ─── Auth ───────────────────────────────────────
   {
-    path: '/',
+    path: '/login',
     component: () => import('@/Layouts/AuthLayout.vue'),
     children: [
       { path: '', name: 'login', component: () => import('@/Views/auth/LoginView.vue') },
@@ -29,20 +28,16 @@ const routes = [
   },
 
   // ─── App ────────────────────────────────────────
-  // {
-  //   path: '/',
-  //   component: () => import('@/layouts/AppLayout.vue'),
-  //   meta: { requiresAuth: true },
-  //   children: [
-  //     { path: '', redirect: '/chat' },
-  //     { path: 'chat', name: 'chat', component: () => import('@/Views/chat/HomeView.vue') },
-  //     { path: 'chat/:id', name: 'conversation', component: () => import('@/Views/chat/ConversationView.vue') },
-  //     { path: 'profile', name: 'profile', component: () => import('@/Views/profile/ProfileView.vue') },
-  //   ],
-  // },
-
-  // 404
-  // { path: '/:pathMatch(.*)*', redirect: '/chat' },
+  {
+    path: '/',
+    component: () => import('@/Layouts/AppLayout.vue'),
+    redirect: '/statuses',
+    children: [
+      { path: 'statuses', name: 'statuses', component: () => import('@/Views/StatusView.vue') },
+      { path: 'posts', name: 'posts', component: () => import('@/Views/PostsView.vue') },
+      { path: 'profile', name: 'profile', component: () => import('@/Views/ProfileView.vue') },
+    ],
+  },
 ]
 
 const router = createRouter({

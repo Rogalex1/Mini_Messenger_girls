@@ -1,0 +1,141 @@
+:root {
+  /* Couleurs GlowChat (Rose) */
+  --gc-primary: #ec4899;
+  --gc-primary-dark: #db2777;
+  --gc-primary-light: #f472b6;
+  --gc-secondary: #be185d;
+  --gc-accent: #fdf2f8;
+
+  /* Couleurs Neutres */
+  --gc-white: #ffffff;
+  --gc-gray-50: #f9fafb;
+  --gc-gray-100: #f3f4f6;
+  --gc-gray-200: #e5e7eb;
+  --gc-gray-300: #d1d5db;
+  --gc-gray-400: #9ca3af;
+  --gc-gray-500: #6b7280;
+  --gc-gray-600: #4b5563;
+  --gc-gray-700: #374151;
+  --gc-gray-800: #1f2937;
+  --gc-gray-900: #111827;
+  --gc-black: #000000;
+
+  /* Glassmorphism */
+  --gc-glass-bg: rgba(255, 255, 255, 0.7);
+  --gc-glass-bg-dark: rgba(31, 41, 55, 0.7);
+  --gc-glass-border: rgba(255, 255, 255, 0.3);
+  --gc-glass-border-dark: rgba(255, 255, 255, 0.1);
+  --gc-glass-shadow: 0 8px 32px 0 rgba(236, 72, 153, 0.15);
+  --gc-glass-blur: blur(12px);
+
+  /* Typographie */
+  --gc-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --gc-font-size-xs: 0.75rem;
+  --gc-font-size-sm: 0.875rem;
+  --gc-font-size-base: 1rem;
+  --gc-font-size-lg: 1.125rem;
+  --gc-font-size-xl: 1.25rem;
+  --gc-font-size-2xl: 1.5rem;
+  --gc-font-size-3xl: 1.875rem;
+
+  /* Espacement */
+  --gc-spacing-xs: 0.25rem;
+  --gc-spacing-sm: 0.5rem;
+  --gc-spacing-md: 1rem;
+  --gc-spacing-lg: 1.5rem;
+  --gc-spacing-xl: 2rem;
+
+  /* Rayons */
+  --gc-radius-sm: 0.375rem;
+  --gc-radius-md: 0.5rem;
+  --gc-radius-lg: 0.75rem;
+  --gc-radius-xl: 1rem;
+  --gc-radius-full: 9999px;
+
+  /* Transitions */
+  --gc-transition-fast: 150ms ease-in-out;
+  --gc-transition-base: 300ms ease-in-out;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--gc-font-sans);
+  background: linear-gradient(135deg, #fdf2f8 0%, #fff1f2 50%, #fef3c7 100%);
+  color: var(--gc-gray-800);
+  min-height: 100vh;
+}
+
+/* Glassmorphism Component */
+.gc-glass {
+  background: var(--gc-glass-bg);
+  backdrop-filter: var(--gc-glass-blur);
+  -webkit-backdrop-filter: var(--gc-glass-blur);
+  border: 1px solid var(--gc-glass-border);
+  box-shadow: var(--gc-glass-shadow);
+}
+
+/* Buttons */
+.gc-btn {
+  padding: var(--gc-spacing-sm) var(--gc-spacing-lg);
+  border-radius: var(--gc-radius-lg);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--gc-transition-fast);
+  border: none;
+  font-size: var(--gc-font-size-base);
+}
+
+.gc-btn-primary {
+  background: linear-gradient(135deg, var(--gc-primary) 0%, var(--gc-secondary) 100%);
+  color: var(--gc-white);
+}
+
+.gc-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(236, 72, 153, 0.4);
+}
+
+.gc-btn-secondary {
+  background: var(--gc-white);
+  color: var(--gc-primary);
+  border: 1px solid var(--gc-primary-light);
+}
+
+.gc-btn-secondary:hover {
+  background: var(--gc-accent);
+}
+
+/* Inputs */
+.gc-input {
+  padding: var(--gc-spacing-sm) var(--gc-spacing-md);
+  border-radius: var(--gc-radius-lg);
+  border: 1px solid var(--gc-gray-200);
+  font-size: var(--gc-font-size-base);
+  transition: all var(--gc-transition-fast);
+  width: 100%;
+}
+
+.gc-input:focus {
+  outline: none;
+  border-color: var(--gc-primary);
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+/* Cards */
+.gc-card {
+  border-radius: var(--gc-radius-xl);
+  padding: var(--gc-spacing-lg);
+  background: var(--gc-white);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* Text Colors */
+.gc-text-primary { color: var(--gc-primary); }
+.gc-text-gray-500 { color: var(--gc-gray-500); }
+.gc-text-gray-700 { color: var(--gc-gray-700); }
+
