@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import SessionSlideView from '@/Views/SessionSlideView.vue'
 
 const routes = [
@@ -27,14 +28,33 @@ const routes = [
     meta: { guest: true },
   },
 
-  // ─── App ────────────────────────────────────────
+  // ─── App (Protected) ────────────────────────────────
   {
     path: '/',
     component: () => import('@/Layouts/AppLayout.vue'),
-    redirect: '/statuses',
+    redirect: '/posts',
+    meta: { requiresAuth: true },
     children: [
-      { path: 'statuses', name: 'statuses', component: () => import('@/Views/StatusView.vue') },
+      // Publications (nouvelle page d'accueil)
       { path: 'posts', name: 'posts', component: () => import('@/Views/PostsView.vue') },
+      
+      // Messages & Conversations
+      { path: 'messages', name: 'messages', component: () => import('@/Views/MessagesView.vue') },
+      { path: 'messages/:id', name: 'conversation', component: () => import('@/Views/ConversationView.vue') },
+      
+      // Amis & Demandes
+      { path: 'friends', name: 'friends', component: () => import('@/Views/FriendsView.vue') },
+      
+      // Statuts
+      { path: 'statuses', name: 'statuses', component: () => import('@/Views/StatusView.vue') },
+      
+      // Appels
+      { path: 'calls', name: 'calls', component: () => import('@/Views/CallsView.vue') },
+      
+      // Notifications
+      { path: 'notifications', name: 'notifications', component: () => import('@/Views/NotificationsView.vue') },
+      
+      // Profil
       { path: 'profile', name: 'profile', component: () => import('@/Views/ProfileView.vue') },
     ],
   },
@@ -46,15 +66,15 @@ const router = createRouter({
 })
 
 // Guard global
-// router.beforeEach(async (to) => {
-//   const auth = useAuthStore()
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
 
-//   if (to.meta.requiresAuth && !auth.isLoggedIn) {
-//     return { name: 'login' }
-//   }
-//   if (to.meta.guest && auth.isLoggedIn) {
-//     return { name: 'chat' }
-//   }
-// })
+  if (to.meta.requiresAuth && !auth.isLoggedIn) {
+    return { name: 'login' }
+  }
+  if (to.meta.guest && auth.isLoggedIn) {
+    return { name: 'posts' }
+  }
+})
 
 export default router
