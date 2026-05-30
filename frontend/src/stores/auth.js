@@ -16,7 +16,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await authApi.register(data)
       setSession(res.data)
-      router.push('/chat')
       return { success: true }
     } catch (e) {
       return { success: false, errors: e.response?.data }
@@ -26,17 +25,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(data) {
-    loading.value = true
-    try {
-      const res = await authApi.login(data)
-      setSession(res.data)
-      router.push('/chat')
-      return { success: true }
-    } catch (e) {
-      return { success: false, message: e.response?.data?.message }
-    } finally {
-      loading.value = false
+  loading.value = true
+  try {
+    const res = await authApi.login(data)
+
+    setSession(res.data)
+    return { success: true }
+  } catch (e) {
+    return {
+      success: false,
+      message: e.response?.data?.message
     }
+  } finally {
+    loading.value = false
+  }
   }
 
   async function logout() {
