@@ -37,10 +37,17 @@ const routes = [
     children: [
       // Publications (nouvelle page d'accueil)
       { path: 'posts', name: 'posts', component: () => import('@/Views/PostsView.vue') },
+      { path: 'homeview', name: 'homeview', component: () => import('@/Views/HomeView.vue') },
       
       // Messages & Conversations
-      { path: 'messages', name: 'messages', component: () => import('@/Views/MessagesView.vue') },
-      { path: 'messages/:id', name: 'conversation', component: () => import('@/Views/ConversationView.vue') },
+      { 
+        path: 'messages', 
+        name: 'messages', 
+        component: () => import('@/Views/HomeView.vue'),
+        children: [
+          { path: ':id', name: 'conversation', component: () => import('@/Views/ConversationView.vue') },
+        ]
+      },
       
       // Amis & Demandes
       { path: 'friends', name: 'friends', component: () => import('@/Views/FriendsView.vue') },

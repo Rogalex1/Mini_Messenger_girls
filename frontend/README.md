@@ -36,3 +36,6 @@ npm run dev
 ```sh
 npm run build
 ```
+
+Prends connaissances du projet du backend jusqu'au frontend ensuite
+ajuste moi le  layout , intègre les routes et corrige les erreur

@@ -71,7 +71,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { usePostStore } from '@/stores/post'
-import PostCard from '@/components/PostCard.vue'
+import PostCard from '@/Components/PostCard.vue'
 
 const postStore = usePostStore()
 const loading = ref(true)

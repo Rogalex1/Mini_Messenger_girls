@@ -4,8 +4,10 @@ import { authApi } from '@/api/auth'
 import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
+  const token = ref(localStorage.getItem('token'))
+  if (token.value === 'null' || token.value === 'undefined') token.value = null
+  
   const user  = ref(null)
-  const token = ref(localStorage.getItem('token') || null)
   const loading = ref(false)
 
   const isLoggedIn = computed(() => !!token.value)
@@ -25,28 +27,31 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(data) {
-  loading.value = true
-  try {
-    const res = await authApi.login(data)
-
-    setSession(res.data)
-    return { success: true }
-  } catch (e) {
-    return {
-      success: false,
-      message: e.response?.data?.message
+    loading.value = true
+    try {
+      const res = await authApi.login(data)
+      setSession(res.data)
+      return { success: true }
+    } catch (e) {
+      return {
+        success: false,
+        message: e.response?.data?.message,
+        errors: e.response?.data
+      }
+    } finally {
+      loading.value = false
     }
-  } finally {
-    loading.value = false
-  }
   }
 
   async function logout() {
     try {
       await authApi.logout()
+    } catch (e) {
+      console.error('Logout error', e)
     } finally {
       clearSession()
-      router.push('/login')
+      // Utiliser window.location pour vider complètement l'état de l'application (Pinia, Echo, etc.)
+      window.location.href = '/login'
     }
   }
 
