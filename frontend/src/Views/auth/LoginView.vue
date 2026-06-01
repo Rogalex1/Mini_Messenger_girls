@@ -430,8 +430,10 @@ async function handleLogin() {
   loading.value = true
 
   const result = await auth.login(form)
-  router.push("/sessionSlide")
-  if (!result.success) {
+  
+  if (result.success) {
+    router.push("/sessionSlide")
+  } else {
     if (result.errors?.errors) {
       errors.value = result.errors.errors
     } else {
