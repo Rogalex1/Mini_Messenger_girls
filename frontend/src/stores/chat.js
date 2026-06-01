@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '@/api/axios'
 import echo from '@/echo'
+import { useAuthStore } from '@/stores/auth'
 
 export const useChatStore = defineStore('chat', () => {
   const conversations = ref([])
@@ -16,19 +17,88 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function sendMessage(convId, data) {
-    const res = await api.post(`/conversations/${convId}/messages`, data)
-    addMessage(convId, res.data.message)
-    updateLastMessage(convId, res.data.message)
+    // Mise à jour optimiste
+    const tempId = Date.now()
+    const authStore = useAuthStore()
+    const tempMsg = {
+      id: tempId,
+      conversation_id: convId,
+      sender_id: authStore.user.id,
+      message: data.message,
+      type: data.type || 'text',
+      is_seen: false,
+      created_at: new Date().toISOString(),
+      sender: {
+        id: authStore.user.id,
+        username: authStore.user.username,
+        avatar: authStore.user.profile?.profile_photo
+      },
+      optimistic: true
+    }
+    
+    addMessage(convId, tempMsg)
+    updateLastMessage(convId, tempMsg)
+
+    try {
+      const res = await api.post(`/conversations/${convId}/messages`, data)
+      // Remplacer le message temporaire par le vrai
+      const msgs = messages.value[convId] ?? []
+      const idx = msgs.findIndex(m => m.id === tempId)
+      if (idx !== -1) {
+        msgs[idx] = res.data.message
+      }
+      updateLastMessage(convId, res.data.message)
+    } catch (e) {
+      // Retirer le message en cas d'erreur
+      messages.value[convId] = messages.value[convId].filter(m => m.id !== tempId)
+      throw e
+    }
   }
 
   async function sendFile(convId, file) {
+    // Mise à jour optimiste pour les fichiers
+    const tempId = Date.now()
+    const authStore = useAuthStore()
+    const isImage = file.type.startsWith('image/')
+    
+    const tempMsg = {
+      id: tempId,
+      conversation_id: convId,
+      sender_id: authStore.user.id,
+      message: file.name,
+      type: isImage ? 'image' : 'file',
+      file_url: isImage ? URL.createObjectURL(file) : null, // Preview locale pour image
+      is_seen: false,
+      created_at: new Date().toISOString(),
+      sender: {
+        id: authStore.user.id,
+        username: authStore.user.username,
+        avatar: authStore.user.profile?.profile_photo
+      },
+      optimistic: true
+    }
+
+    addMessage(convId, tempMsg)
+    updateLastMessage(convId, tempMsg)
+
     const form = new FormData()
     form.append('file', file)
-    const res = await api.post(`/conversations/${convId}/upload`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    addMessage(convId, res.data.message)
-    updateLastMessage(convId, res.data.message)
+    
+    try {
+      const res = await api.post(`/conversations/${convId}/upload`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      
+      const msgs = messages.value[convId] ?? []
+      const idx = msgs.findIndex(m => m.id === tempId)
+      if (idx !== -1) {
+        msgs[idx] = res.data.message
+      }
+      updateLastMessage(convId, res.data.message)
+    } catch (e) {
+      messages.value[convId] = messages.value[convId].filter(m => m.id !== tempId)
+      throw e
+    }
   }
 
   async function fetchMessages(convId) {
@@ -44,6 +114,21 @@ export const useChatStore = defineStore('chat', () => {
     await api.patch(`/conversations/${convId}/status`, { status })
     const conv = conversations.value.find(c => c.id === convId)
     if (conv) conv.status = status
+  }
+
+  async function markAsRead(convId) {
+    await api.post(`/conversations/${convId}/read`)
+    // Mettre à jour localement les compteurs non lus
+    const conv = conversations.value.find(c => c.id === convId)
+    if (conv) conv.unread_count = 0
+  }
+
+  async function addReaction(messageId, reaction) {
+    await api.post(`/messages/${messageId}/reactions`, { reaction })
+  }
+
+  async function removeReaction(messageId) {
+    await api.delete(`/messages/${messageId}/reactions`)
   }
 
   // ─── WebSocket : s'abonner à une conversation ─
@@ -66,7 +151,7 @@ export const useChatStore = defineStore('chat', () => {
       })
 
 
-      .listen('.message.read', (data) => {
+    .listen('.message.read', (data) => {
     // Mettre à jour is_seen des messages concernés
     const msgs = messages.value[data.conversation_id] ?? []
     msgs.forEach(msg => {
@@ -77,7 +162,7 @@ export const useChatStore = defineStore('chat', () => {
     })
     })
 
-.listen('.message.reacted', (data) => {
+    .listen('.message.reacted', (data) => {
     const msgs = messages.value[data.conversation_id] ?? []
     const msg  = msgs.find(m => m.id === data.message_id)
     if (!msg) return
@@ -89,15 +174,16 @@ export const useChatStore = defineStore('chat', () => {
         if (existing) {
             existing.reaction = data.reaction
         } else {
-            msg.reactions.push({ user_id: data.user_id, reaction: data.reaction })
+            msg.reactions.push({ 
+              user_id: data.user_id, 
+              username: data.username,
+              reaction: data.reaction 
+            })
         }
     } else {
         msg.reactions = msg.reactions.filter(r => r.user_id !== data.user_id)
     }
-})
-    
-
-
+     })
   }
 
   function unsubscribeFromConversation(convId) {
@@ -175,6 +261,9 @@ export const useChatStore = defineStore('chat', () => {
     sendFile,
     sendTyping,
     updateStatus,
+    markAsRead,
+    addReaction,
+    removeReaction,
     subscribeToConversation,
     unsubscribeFromConversation,
     subscribeToOnlineUsers,

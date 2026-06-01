@@ -28,7 +28,7 @@ class MessageReactionController extends Controller
         // Broadcast aux autres participants
         broadcast(new \App\Events\MessageReacted(
             message:   $message,
-            userId:    $user->id,
+            user:      $user,
             reaction:  $request->reaction,
             action:    'added',
         ))->toOthers();
@@ -49,7 +49,7 @@ class MessageReactionController extends Controller
 
         broadcast(new \App\Events\MessageReacted(
             message:  $message,
-            userId:   $user->id,
+            user:     $user,
             reaction: '',
             action:   'removed',
         ))->toOthers();

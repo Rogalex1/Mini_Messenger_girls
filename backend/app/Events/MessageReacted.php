@@ -13,7 +13,7 @@ class MessageReacted implements ShouldBroadcast
 
     public function __construct(
         public Message $message,
-        public int     $userId,
+        public \App\Models\User $user,
         public string  $reaction,
         public string  $action,   // 'added' ou 'removed'
     ) {}
@@ -30,7 +30,8 @@ class MessageReacted implements ShouldBroadcast
         return [
             'message_id'      => $this->message->id,
             'conversation_id' => $this->message->conversation_id,
-            'user_id'         => $this->userId,
+            'user_id'         => $this->user->id,
+            'username'        => $this->user->username,
             'reaction'        => $this->reaction,
             'action'          => $this->action,
         ];

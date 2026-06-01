@@ -13,7 +13,7 @@ const echo = new Echo({
   enabledTransports: ['ws', 'wss'],
 
   // Authentification des canaux privés
-  authEndpoint: `${import.meta.env.VITE_API_URL}/broadcasting/auth`,
+  authEndpoint: `${import.meta.env.VITE_API_URL.replace('/api', '')}/broadcasting/auth`,
   auth: {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('token')}`,
