@@ -1,4 +1,4 @@
-<template>
+git <template>
   <div class="auth-card">
     <div class="auth-header">
       <h2>Bon retour</h2>
