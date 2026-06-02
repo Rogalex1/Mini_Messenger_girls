@@ -133,10 +133,26 @@ export const useChatStore = defineStore('chat', () => {
 
   // ─── WebSocket : s'abonner à une conversation ─
   function subscribeToConversation(convId) {
+    // console.log(`Abonnement au canal privé: conversation.${convId}`)
     echo.private(`conversation.${convId}`)
-
+      // .subscribed(() => {
+      //   console.log(`Succès: Abonné au canal conversation.${convId}`)
+      // })
+      .error((error) => {
+        console.error(`Erreur d'abonnement au canal conversation.${convId}:`, error)
+      })
       // Nouveau message reçu
       .listen('.message.sent', (data) => {
+        const authStore = useAuthStore()
+        // console.log('Nouveau message reçu via Echo:', data)
+        
+        // Si c'est nous qui avons envoyé le message, on ne l'ajoute pas à nouveau
+        // car le store l'a déjà ajouté via sendMessage() (mise à jour optimiste)
+        if (data.sender_id === authStore.user.id) {
+          console.log('Message ignoré car envoyé par nous-mêmes')
+          return
+        }
+
         addMessage(convId, data)
         updateLastMessage(convId, data)
       })

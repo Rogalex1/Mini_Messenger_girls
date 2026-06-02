@@ -8,8 +8,9 @@ Broadcast::channel('conversation.{conversationId}', function ($user, $conversati
     $conversation = Conversation::find($conversationId);
     if (!$conversation) return false;
 
-    return $conversation->user_one === $user->id
-        || $conversation->user_two === $user->id;
+    // Utilisation de == pour éviter les problèmes de type string/int
+    return $conversation->user_one == $user->id
+        || $conversation->user_two == $user->id;
 });
 
 // Canal presence = liste des utilisateurs en ligne

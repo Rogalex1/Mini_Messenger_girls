@@ -13,7 +13,7 @@ const echo = new Echo({
   enabledTransports: ['ws', 'wss'],
 
   // Authentification des canaux privés
-  authEndpoint: `${import.meta.env.VITE_API_URL.replace('/api', '')}/broadcasting/auth`,
+  authEndpoint: `${import.meta.env.VITE_API_URL}/broadcasting/auth`,
   auth: {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -25,6 +25,12 @@ const echo = new Echo({
 // Intercepteur pour mettre à jour le token si nécessaire
 echo.connector.pusher.connection.bind('state_change', (states) => {
     echo.options.auth.headers.Authorization = `Bearer ${localStorage.getItem('token')}`;
+});
+
+console.log({
+    host: import.meta.env.VITE_REVERB_HOST,
+    port: import.meta.env.VITE_REVERB_PORT,
+    scheme: import.meta.env.VITE_REVERB_SCHEME,
 });
 
 export default echo

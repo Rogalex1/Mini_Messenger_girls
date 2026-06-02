@@ -17,6 +17,9 @@ Route::prefix('auth')->group(function () {
 
 // ─── Routes protégées ────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
+    // Authentification des WebSockets (Broadcasting)
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
     // Auth
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me',      [AuthController::class, 'me']);
