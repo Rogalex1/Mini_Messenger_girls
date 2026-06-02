@@ -36,3 +36,12 @@ npm run dev
 ```sh
 npm run build
 ```
+
+Prends connaissances du projet du backend jusqu'au frontend ensuite
+ajuste moi le  layout , intègre les routes et corrige les erreur
+
+J'ai plusieurs fonctionnalité qui ne sont pas encore integrer dans le frontend
+envoyer un message dans une conversation (l'envoie du message ne passe pas encore) ,
+réagir à un message (emojis...) ,
+Marqué lu , non lu , vu, et 
+Ajouter une rubrique "contact" dans le layout(mobile, destok) pour rediriger vers la vue "Users.vue". Gère moi tous ça stp sachant que toutes les controllers , les routes et les routes sont déja implémenter Tu peux t'inspirer des logiques pour afficher tous ça dans la vue conrespondant 

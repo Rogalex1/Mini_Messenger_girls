@@ -32,8 +32,15 @@ class Message extends Model
     {
         return $this->belongsTo(User::class, 'receiver_id');
     }
+
     public function reactions()
     {
         return $this->hasMany(MessageReaction::class);
+    }
+
+    // app/Models/Message.php
+    public function replyTo()
+    {
+    return $this->belongsTo(Message::class, 'reply_to_id');
     }
 }
