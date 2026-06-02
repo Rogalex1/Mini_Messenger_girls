@@ -7,6 +7,12 @@ class Conversation extends Model
 {
     protected $fillable = ['user_one', 'user_two', 'last_message_id'];
 
+    protected $casts = [
+        'user_one' => 'integer',
+        'user_two' => 'integer',
+        'last_message_id' => 'integer',
+    ];
+
     public function userOne()
     {
         return $this->belongsTo(User::class, 'user_one');

@@ -29,6 +29,7 @@ class MessageResource extends JsonResource
                     'id'       => $r->id,
                     'reaction' => $r->reaction,
                     'user_id'  => $r->user_id,
+                    'username' => $r->user?->username,
                 ])
             ),
             'sender'          => [

@@ -27,4 +27,10 @@ echo.connector.pusher.connection.bind('state_change', (states) => {
     echo.options.auth.headers.Authorization = `Bearer ${localStorage.getItem('token')}`;
 });
 
+console.log({
+    host: import.meta.env.VITE_REVERB_HOST,
+    port: import.meta.env.VITE_REVERB_PORT,
+    scheme: import.meta.env.VITE_REVERB_SCHEME,
+});
+
 export default echo

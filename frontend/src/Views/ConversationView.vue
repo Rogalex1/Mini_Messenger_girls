@@ -51,9 +51,30 @@
             <!-- Bulle -->
             <div class="gc-bubble-wrap">
               <div class="gc-bubble" :class="msg.sender_id === auth.user?.id ? 'me' : 'them'">
+                <!-- Bouton Réaction -->
+                <div class="gc-bubble-actions" :class="{ 'forced-show': activeEmojiMsgId === msg.id }">
+                  <button class="gc-react-trigger" @click.stop="toggleEmojiPicker(msg.id)">
+                    <i class="ti ti-mood-smile"></i>
+                  </button>
+                  <div v-if="activeEmojiMsgId === msg.id" class="gc-emoji-picker" @click.stop>
+                    <span v-for="e in emojis" :key="e" @click="reactToMessage(msg.id, e)">{{ e }}</span>
+                  </div>
+                </div>
 
                 <!-- Texte -->
-                <p v-if="msg.type === 'text'">{{ msg.message }}</p>
+                <p v-if="msg.type === 'text'" :class="{ 'optimistic': msg.optimistic }">{{ msg.message }}</p>
+
+                <!-- Réactions affichées -->
+                <div v-if="msg.reactions?.length" class="gc-message-reactions">
+                  <span 
+                    v-for="r in getGroupedReactions(msg.reactions)" 
+                    :key="r.reaction"
+                    class="gc-reaction-item"
+                    :title="r.usernames.join(', ')"
+                  >
+                    {{ r.reaction }} <small>{{ r.count > 1 ? r.count : '' }}</small>
+                  </span>
+                </div>
 
                 <!-- Image -->
                 <img v-else-if="msg.type === 'image'" :src="msg.file_url" class="gc-media-img" />
@@ -165,6 +186,9 @@ const auth      = useAuthStore()
 const messageText       = ref('')
 const messagesContainer = ref(null)
 const fileInput         = ref(null)
+const activeEmojiMsgId  = ref(null)
+const emojis = ['❤️', '😂', '😮', '😢', '😡', '👍', '🙌']
+
 // const isTyping          = ref(false)
 let typingTimer         = null
 
@@ -174,28 +198,34 @@ const loadConversation = async () => {
   if (!convId.value) return
   await chatStore.fetchMessages(convId.value)
   chatStore.subscribeToConversation(convId.value)
+  chatStore.markAsRead(convId.value)
   scrollToBottom()
 }
 
-onMounted(loadConversation)
-onMounted(async () => {
-    await chatStore.fetchMessages(convId.value)
-    await api.post(`/conversations/${convId.value}/read`)  // ← marquer comme lus
-    chatStore.subscribeToConversation(convId.value)
-    scrollToBottom()
+onMounted(() => {
+  loadConversation()
+  window.addEventListener('click', closeEmojiPicker)
 })
+
 // Recharger les données quand on change de conversation via la liste
 watch(convId, (newId, oldId) => {
   if (oldId) chatStore.unsubscribeFromConversation(oldId)
   loadConversation()
 })
 
+// Marquer comme lu quand de nouveaux messages arrivent
+watch(() => chatStore.messages[convId.value]?.length, (newLen, oldLen) => {
+  if (newLen > (oldLen || 0)) {
+    chatStore.markAsRead(convId.value)
+  }
+  nextTick(scrollToBottom)
+})
 
 // Se désabonner à la fermeture
 onUnmounted(() => {
   chatStore.unsubscribeFromConversation(convId.value)
+  window.removeEventListener('click', closeEmojiPicker)
 })
-
 
 // Utiliser le typing indicator du store
 const isTyping = computed(() => chatStore.isUserTyping(convId.value))
@@ -223,16 +253,66 @@ const groupedMessages = computed(() => {
   }, {})
 })
 
-
-
-watch(() => chatStore.messages[convId.value]?.length, () => {
-  nextTick(scrollToBottom)
-})
-
 async function sendMessage() {
   if (!messageText.value.trim()) return
-  await chatStore.sendMessage(convId.value, { message: messageText.value, type: 'text' })
-  messageText.value = ''
+  const currentMsg = messageText.value
+  messageText.value = '' // Vider tout de suite pour UX
+  try {
+    await chatStore.sendMessage(convId.value, { message: currentMsg, type: 'text' })
+  } catch (e) {
+    messageText.value = currentMsg // Remettre en cas d'erreur
+    console.error("Erreur d'envoi", e)
+  }
+}
+
+function getGroupedReactions(reactions) {
+  if (!reactions) return []
+  const groups = {}
+  reactions.forEach(r => {
+    if (!groups[r.reaction]) {
+      groups[r.reaction] = { reaction: r.reaction, count: 0, usernames: [] }
+    }
+    groups[r.reaction].count++
+    if (r.username) groups[r.reaction].usernames.push(r.username)
+    else if (r.user_id === auth.user.id) groups[r.reaction].usernames.push('Vous')
+  })
+  return Object.values(groups)
+}
+
+function toggleEmojiPicker(msgId) {
+  activeEmojiMsgId.value = activeEmojiMsgId.value === msgId ? null : msgId
+}
+
+function closeEmojiPicker() {
+  activeEmojiMsgId.value = null
+}
+
+async function reactToMessage(msgId, emoji) {
+  const msgs = chatStore.messages[convId.value] ?? []
+  const msg  = msgs.find(m => m.id === msgId)
+  if (!msg) return
+
+  // Optimiste : ajouter localement avant l'appel API
+  if (!msg.reactions) msg.reactions = []
+  const existing = msg.reactions.find(r => r.user_id === auth.user.id)
+  
+  if (existing && existing.reaction === emoji) {
+    await chatStore.removeReaction(msgId)
+    msg.reactions = msg.reactions.filter(r => r.user_id !== auth.user.id)
+  } else {
+    await chatStore.addReaction(msgId, emoji)
+    if (existing) {
+      existing.reaction = emoji
+      existing.username = auth.user.username
+    } else {
+      msg.reactions.push({ 
+        user_id: auth.user.id, 
+        username: auth.user.username, 
+        reaction: emoji 
+      })
+    }
+  }
+  activeEmojiMsgId.value = null
 }
 
 function onTyping() {
@@ -421,7 +501,103 @@ function formatDate(dateStr) {
   flex-shrink: 0;
 }
 
-.gc-bubble-wrap { display: flex; flex-direction: column; max-width: 65%; }
+.gc-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 80%;
+  position: relative;
+}
+
+.gc-bubble-actions {
+  position: absolute;
+  top: -28px;
+  right: 0;
+  display: none;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  padding: 4px 10px;
+  z-index: 10;
+  /* Zone de sécurité pour le survol */
+  padding-bottom: 20px;
+  margin-bottom: -15px;
+}
+
+.gc-bubble:hover .gc-bubble-actions,
+.gc-bubble-actions.forced-show {
+  display: flex;
+}
+
+.gc-react-trigger {
+  background: #f8f9fa;
+  border: 1px solid #eee;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.gc-react-trigger:hover { 
+  color: #f59e0b; 
+  background: #fff;
+  transform: scale(1.1);
+}
+
+.gc-emoji-picker {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  z-index: 20;
+  border: 1px solid #f0f0f0;
+}
+
+.gc-emoji-picker span {
+  cursor: pointer;
+  font-size: 20px;
+  transition: transform .1s;
+}
+.gc-emoji-picker span:hover { transform: scale(1.3); }
+
+.gc-bubble p.optimistic {
+  opacity: 0.7;
+}
+
+.gc-message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.gc-reaction-item {
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  cursor: help;
+}
+
+.gc-reaction-item small {
+  color: #6b7280;
+  font-weight: 600;
+}
 
 .gc-bubble {
   padding: 10px 14px;
