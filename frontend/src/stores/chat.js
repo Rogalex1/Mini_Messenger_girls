@@ -149,7 +149,7 @@ export const useChatStore = defineStore('chat', () => {
         // Si c'est nous qui avons envoyé le message, on ne l'ajoute pas à nouveau
         // car le store l'a déjà ajouté via sendMessage() (mise à jour optimiste)
         if (data.sender_id === authStore.user.id) {
-          console.log('Message ignoré car envoyé par nous-mêmes')
+          console.log('Message ignoré  car envoyé par nous-mêmes')
           return
         }
 
