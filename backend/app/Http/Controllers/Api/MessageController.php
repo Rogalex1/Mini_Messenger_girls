@@ -20,7 +20,7 @@ class MessageController extends Controller
         $user = auth()->user();
         $conv = $this->getConversation($conversationId, $user->id);
 
-        $messages = Message::with(['sender.profile', 'reactions', 'replyTo'])
+        $messages = Message::with(['sender.profile', 'reactions.user', 'replyTo'])
             ->where('conversation_id', $conversationId)
             ->orderBy('created_at')
             ->paginate(50);
@@ -69,7 +69,7 @@ class MessageController extends Controller
             'updated_at'      => now(),
         ]);
 
-        $message->load(['sender.profile', 'reactions', 'replyTo']);
+        $message->load(['sender.profile', 'reactions.user', 'replyTo']);
 
         // 🔴 WebSocket — envoyer aux autres participants
         broadcast(new MessageSent($message, $user))->toOthers();
@@ -165,24 +165,25 @@ class MessageController extends Controller
     {
         $conv = Conversation::findOrFail($convId);
 
-        abort_if(
-            $conv->user_one !== $userId && $conv->user_two !== $userId,
-            403, 'Accès refusé.'
-        );
+        if ($conv->user_one != $userId && $conv->user_two != $userId) {
+            abort(403, "Accès refusé. Vous (ID: $userId) ne faites pas partie de cette conversation (ID: $convId) entre {$conv->user_one} et {$conv->user_two}.");
+        }
 
         return $conv;
     }
 
     private function checkNotBlocked(Conversation $conv, int $userId): void
     {
-        $otherUserId = $conv->user_one === $userId
+        $otherUserId = $conv->user_one == $userId
             ? $conv->user_two
             : $conv->user_one;
 
         $isBlocked = \App\Models\FriendRequest::where(function ($q) use ($userId, $otherUserId) {
-            $q->where('sender_id', $userId)->where('receiver_id', $otherUserId);
-        })->orWhere(function ($q) use ($userId, $otherUserId) {
-            $q->where('sender_id', $otherUserId)->where('receiver_id', $userId);
+            $q->where(function ($sq) use ($userId, $otherUserId) {
+                $sq->where('sender_id', $userId)->where('receiver_id', $otherUserId);
+            })->orWhere(function ($sq) use ($userId, $otherUserId) {
+                $sq->where('sender_id', $otherUserId)->where('receiver_id', $userId);
+            });
         })->where('status', 'blocked')->exists();
 
         abort_if($isBlocked, 403, 'Cette conversation est bloquée.');
@@ -192,40 +193,39 @@ class MessageController extends Controller
 
     // Ajouter cette méthode dans MessageController
 
-public function markAsRead(int $conversationId): JsonResponse
-{
-    $user = auth()->user();
-    $this->getConversation($conversationId, $user->id);
+    public function markAsRead(int $conversationId): JsonResponse
+    {
+        $user = auth()->user();
+        $this->getConversation($conversationId, $user->id);
 
-    // Récupérer les IDs des messages non lus
-    $messageIds = Message::where('conversation_id', $conversationId)
-        ->where('receiver_id', $user->id)
-        ->where('is_seen', false)
-        ->pluck('id')
-        ->toArray();
+        $messageIds = Message::where('conversation_id', $conversationId)
+            ->where('receiver_id', $user->id)
+            ->where('is_seen', false)
+            ->pluck('id')
+            ->toArray();
 
-    if (empty($messageIds)) {
-        return response()->json(['ok' => true]);
+        if (empty($messageIds)) {
+            return response()->json(['ok' => true]);
+        }
+
+        // Marquer comme lus
+        Message::whereIn('id', $messageIds)->update([
+            'is_seen' => true,
+            'seen_at' => now(),
+        ]);
+
+        // 🔴 Notifier l'expéditeur via WebSocket
+        broadcast(new MessageRead(
+            conversationId: $conversationId,
+            readerId:       $user->id,
+            messageIds:     $messageIds,
+        ))->toOthers();
+
+        return response()->json([
+            'ok'          => true,
+            'message_ids' => $messageIds,
+        ]);
     }
-
-    // Marquer comme lus
-    Message::whereIn('id', $messageIds)->update([
-        'is_seen' => true,
-        'seen_at' => now(),
-    ]);
-
-    // 🔴 Notifier l'expéditeur via WebSocket
-    broadcast(new MessageRead(
-        conversationId: $conversationId,
-        readerId:       $user->id,
-        messageIds:     $messageIds,
-    ))->toOthers();
-
-    return response()->json([
-        'ok'          => true,
-        'message_ids' => $messageIds,
-    ]);
-}
 
 
 
