@@ -22,7 +22,8 @@
         v-for="status in statuses"
         :key="status.id"
         :status="status"
-        :is-owner="status.user_id === 1"
+        :is-owner="status.user_id === currentUserId"
+        :current-user-id="currentUserId"
         @delete="deleteStatus"
         @view="viewStatus"
       />
@@ -68,9 +69,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useStatusStore } from '@/stores/status'
+import { useAuthStore } from '@/stores/auth'
 import StatusCard from '@/components/StatusCard.vue'
 
 const statusStore = useStatusStore()
+const authStore = useAuthStore()
 const loading = ref(true)
 const showAddModal = ref(false)
 const newStatus = ref({
@@ -80,9 +83,13 @@ const newStatus = ref({
 })
 
 const statuses = computed(() => statusStore.statuses)
+const currentUserId = computed(() => authStore.user?.id || null)
 
 onMounted(async () => {
-  await statusStore.fetchStatuses()
+  await Promise.all([
+    statusStore.fetchStatuses(),
+    authStore.fetchMe()
+  ])
   loading.value = false
 })
 

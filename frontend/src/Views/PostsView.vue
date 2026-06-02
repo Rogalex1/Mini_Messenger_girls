@@ -22,12 +22,14 @@
         v-for="post in posts"
         :key="post.id"
         :post="post"
-        :is-owner="post.user_id === 1"
-        :current-user-id="1"
+        :is-owner="post.user_id === currentUserId"
+        :current-user-id="currentUserId"
         @delete="deletePost"
         @like="toggleLike"
         @add-comment="addComment"
         @delete-comment="deleteComment"
+         @edit="editPost"
+        @share="sharePost"
       />
     </div>
 
@@ -71,9 +73,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { usePostStore } from '@/stores/post'
+import { useAuthStore } from '@/stores/auth'
 import PostCard from '@/components/PostCard.vue'
 
 const postStore = usePostStore()
+const authStore = useAuthStore()
 const loading = ref(true)
 const showAddModal = ref(false)
 
@@ -84,9 +88,13 @@ const newPost = ref({
 })
 
 const posts = computed(() => postStore.posts)
+const currentUserId = computed(() => authStore.user?.id || null)
 
 onMounted(async () => {
-  await postStore.fetchPosts()
+   await Promise.all([
+    postStore.fetchPosts(),
+    authStore.fetchMe()
+  ])
   loading.value = false
 })
 
@@ -111,6 +119,16 @@ const addComment = async ({ postId, comment }) => {
 const deleteComment = async ({ postId, commentId }) => {
   await postStore.deleteComment(postId, commentId)
 }
+const editPost = async ({ postId, data }) => {
+  await postStore.updatePost(postId, data)
+}
+
+const sharePost = async (postId) => {
+  await postStore.sharePost(postId)
+}
+// const viewPost = async (postId) => {
+//   await postStore.incrementViews(postId)
+// }
 </script>
 
 <style scoped>

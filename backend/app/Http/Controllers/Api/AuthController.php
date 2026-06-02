@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Api;
 
+use App\Events\UserOnline;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\LoginRequest;
@@ -56,6 +57,9 @@ class AuthController extends Controller
             'last_seen' => now(),
         ]);
 
+        // Dans login() après update is_online
+        broadcast(new UserOnline($user, true));
+
         // Révoquer les anciens tokens + créer un nouveau
         $user->tokens()->delete();
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -77,6 +81,10 @@ class AuthController extends Controller
             'is_online' => false,
             'last_seen' => now(),
         ]);
+
+
+        // Dans logout() après update is_online
+        broadcast(new UserOnline($user, false));
 
         // Révoquer le token courant
         $request->user()->currentAccessToken()->delete();
