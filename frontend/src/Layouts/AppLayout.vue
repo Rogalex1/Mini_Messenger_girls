@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 <template>
   <div class="gc-app">
 
