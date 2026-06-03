@@ -25,6 +25,9 @@
         <RouterLink to="/friends" class="gc-nav-icon" active-class="active" title="Amis">
           <i class="ti ti-users"></i>
         </RouterLink>
+        <RouterLink to="/groups" class="gc-nav-icon" active-class="active" title="Groupes">
+          <i class="ti ti-users-group"></i>
+        </RouterLink>
         <RouterLink to="/statuses" class="gc-nav-icon" active-class="active" title="Statuts">
           <i class="ti ti-circle-dashed"></i>
         </RouterLink>

@@ -51,6 +51,9 @@ const routes = [
       
       // Amis & Demandes
       { path: 'friends', name: 'friends', component: () => import('@/Views/FriendsView.vue') },
+
+      //Groups (CHRISTELLE)
+      { path: 'groups', name: 'groups', component: () => import('@/Views/GroupsView.vue') },
       
       // Statuts
       { path: 'statuses', name: 'statuses', component: () => import('@/Views/StatusView.vue') },
