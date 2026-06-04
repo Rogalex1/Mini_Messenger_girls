@@ -12,6 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Events\MessageRead;
 
+use App\Events\MessageUpdated;
+use App\Events\MessageDeleted;
+use Illuminate\Support\Facades\Storage;
+
 class MessageController extends Controller
 {
     // ─── Lister les messages d'une conversation ───────────────
@@ -80,69 +84,7 @@ class MessageController extends Controller
     }
 
     // ─── Upload d'un fichier média ────────────────────────────
-    public function upload(Request $request, int $conversationId): JsonResponse
-    {
-        $request->validate([
-            'file' => ['required', 'file', 'max:51200'],
-        ]);
-
-        $user = auth()->user();
-        $conv = $this->getConversation($conversationId, $user->id);
-        $this->checkNotBlocked($conv, $user->id);
-
-        $file = $request->file('file');
-        $mime = $file->getMimeType();
-
-        $type = match(true) {
-            str_starts_with($mime, 'image/') => 'image',
-            str_starts_with($mime, 'video/') => 'video',
-            str_starts_with($mime, 'audio/') => 'audio',
-            default                          => 'file',
-        };
-
-        $path = $file->store("conversations/{$conversationId}", 'public');
-
-        $receiverId = $conv->user_one === $user->id
-            ? $conv->user_two
-            : $conv->user_one;
-
-        $message = Message::create([
-            'conversation_id' => $conversationId,
-            'sender_id'       => $user->id,
-            'receiver_id'     => $receiverId,
-            'message'         => $file->getClientOriginalName(),
-            'type'            => $type,
-            'file_url'        => $path,
-        ]);
-
-        $conv->update([
-            'last_message_id' => $message->id,
-            'updated_at'      => now(),
-        ]);
-
-        $message->load(['sender.profile', 'reactions']);
-
-        broadcast(new MessageSent($message, $user))->toOthers();
-
-        return response()->json([
-            'message' => new MessageResource($message),
-        ], 201);
-    }
-
     // ─── Supprimer un message ─────────────────────────────────
-    public function destroy(int $conversationId, int $messageId): JsonResponse
-    {
-        $user    = auth()->user();
-        $message = Message::where('conversation_id', $conversationId)
-                          ->where('sender_id', $user->id)
-                          ->findOrFail($messageId);
-
-        // Soft delete + marquer comme supprimé
-        $message->update(['is_deleted' => true]);
-        $message->delete();
-
-        return response()->json(['message' => 'Message supprimé.']);
-    }
 
     // ─── Indicateur "est en train d'écrire" ───────────────────
     public function typing(Request $request, int $conversationId): JsonResponse
@@ -254,4 +196,113 @@ public function viewOnce(int $conversationId, int $messageId): JsonResponse
 
     return response()->json(['ok' => true]);
 }
+
+
+
+// ─── Modifier un message ──────────────────────────────
+public function update(Request $request, int $conversationId, int $messageId): JsonResponse
+{
+    $request->validate([
+        'message' => ['required', 'string', 'max:5000'],
+    ]);
+
+    $user    = auth()->user();
+    $message = Message::where('conversation_id', $conversationId)
+                      ->where('sender_id', $user->id)   // seul l'auteur peut modifier
+                      ->where('type', 'text')            // on ne modifie que les textes
+                      ->findOrFail($messageId);
+
+    $message->update([
+        'message' => $request->message,
+    ]);
+
+    // 🔴 WebSocket
+    broadcast(new MessageUpdated($message))->toOthers();
+
+    return response()->json([
+        'message' => new MessageResource($message),
+    ]);
+}
+
+// ─── Supprimer un message ─────────────────────────────
+public function destroy(int $conversationId, int $messageId): JsonResponse
+{
+    $user    = auth()->user();
+    $message = Message::where('conversation_id', $conversationId)
+                      ->where('sender_id', $user->id)
+                      ->findOrFail($messageId);
+
+    // Supprimer le fichier si média
+    if ($message->file_url) {
+        Storage::disk('public')->delete($message->file_url);
+    }
+
+    $message->update([
+        'message'    => null,
+        'file_url'   => null,
+    ]);
+    $message->delete(); // soft delete
+
+    // 🔴 WebSocket
+    broadcast(new MessageDeleted($messageId, $conversationId))->toOthers();
+
+    return response()->json(['message' => 'Message supprimé.']);
+}
+
+// ─── Upload fichier(s) ────────────────────────────────
+public function upload(Request $request, int $conversationId): JsonResponse
+{
+
+    $request->validate([
+        'file'           => ['required', 'file', 'max:51200'],  // 50MB
+        'is_single_view' => ['boolean'],
+    ]);
+
+    $user = auth()->user();
+    $conv = $this->getConversation($conversationId, $user->id);
+    $this->checkNotBlocked($conv, $user->id);
+
+    $file = $request->file('file');
+    $mime = $file->getMimeType();
+
+    // Déterminer le type automatiquement
+    $type = match(true) {
+        str_starts_with($mime, 'image/') => 'image',
+        str_starts_with($mime, 'video/') => 'video',
+        str_starts_with($mime, 'audio/') => 'audio',
+        default                          => 'file',
+    };
+
+    $path = $file->store("conversations/{$conversationId}", 'public');
+
+    $receiverId = $conv->user_one === $user->id
+        ? $conv->user_two
+        : $conv->user_one;
+
+    $message = Message::create([
+        'conversation_id' => $conversationId,
+        'sender_id'       => $user->id,
+        'receiver_id'     => $receiverId,
+        'message'         => $file->getClientOriginalName(),
+        'type'            => $type,
+        'file_url'        => $path,
+        'is_single_view'  => $request->is_single_view ?? false,
+    ]);
+
+    $conv->update([
+        'last_message_id' => $message->id,
+        'updated_at'      => now(),
+    ]);
+
+    $message->load(['sender.profile', 'reactions']);
+
+    broadcast(new MessageSent($message, $user))->toOthers();
+
+    return response()->json([
+        'message' => new MessageResource($message),
+    ], 201);
+}
+
+
+
 }
