@@ -14,28 +14,27 @@ class UserController extends Controller
     /**
      * Liste des utilisateurs (pour ajouter des membres à un groupe par exemple)
      */
-    public function index(Request $request)
-    {
-        $query = User::with('profile')->where('id', '!=', Auth::id());
+    // public function index(Request $request)
+    // {
+    //     $query = User::with('profile')->where('id', '!=', Auth::id());
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('username', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
+    //     if ($request->has('search')) {
+    //         $search = $request->search;
+    //         $query->where(function($q) use ($search) {
+    //             $q->where('username', 'like', "%{$search}%")
+    //               ->orWhere('email', 'like', "%{$search}%");
+    //         });
+    //     }
 
-        $users = $query->limit(20)->get();
+    //     $users = $query->limit(20)->get();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $users
-        ]);
-    }
-}
-     * Récupère la liste des utilisateurs qui ne sont pas encore en conversation.
-     */
+    //     return response()->json([
+    //         'status' => 'success',
+    //         'data' => $users
+    //     ]);
+    // }
+    //  * Récupère la liste des utilisateurs qui ne sont pas encore en conversation.
+    //  */
     public function getAllUsers(): JsonResponse
     {
         $currentUserId = Auth::id();
