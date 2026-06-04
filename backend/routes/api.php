@@ -69,6 +69,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/messages/{id}/reactions',  [MessageReactionController::class, 'destroy']);
     Route::post('/conversations/{id}/messages/{msgId}/view', [MessageController::class, 'viewOnce']);
 
+    Route::put('/conversations/{id}/messages/{msgId}',    [MessageController::class, 'update']);
+    Route::delete('/conversations/{id}/messages/{msgId}', [MessageController::class, 'destroy']);
+    Route::post('/conversations/{id}/upload',             [MessageController::class, 'upload']);
 
     //users
     Route::get('/all-users', [UserController::class, 'getAllUsers']);

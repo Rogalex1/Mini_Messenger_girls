@@ -9,6 +9,9 @@ export const useChatStore = defineStore('chat', () => {
   const messages      = ref({})   // { convId: [...] }
   const typingUsers   = ref({})   // { convId: userId }
   const onlineUsers   = ref([])
+  // Ajouter dans les refs du store
+const uploadProgress = ref(0)
+
 
   // ─── Conversations ───────────────────────────
   async function fetchConversations() {
@@ -53,6 +56,51 @@ export const useChatStore = defineStore('chat', () => {
       messages.value[convId] = messages.value[convId].filter(m => m.id !== tempId)
       throw e
     }
+  }
+
+  // ─── Modifier un message ──────────────────────────────
+  async function editMessage(convId, messageId, newText) {
+    const res = await api.put(
+        `/conversations/${convId}/messages/${messageId}`,
+        { message: newText }
+    )
+    // Mise à jour locale immédiate
+    const msgs = messages.value[convId] ?? []
+    const idx  = msgs.findIndex(m => m.id === messageId)
+    if (idx !== -1) msgs[idx].message = newText
+    return res.data
+  }
+
+  // ─── Supprimer un message ─────────────────────────────
+  async function deleteMessage(convId, messageId) {
+    await api.delete(`/conversations/${convId}/messages/${messageId}`)
+    // Mise à jour locale immédiate
+    const msgs = messages.value[convId] ?? []
+    const idx  = msgs.findIndex(m => m.id === messageId)
+    if (idx !== -1) {
+        msgs[idx].is_deleted = true
+        msgs[idx].message    = null
+        msgs[idx].file_url   = null
+    }
+  }
+
+  // ─── Upload fichier ───────────────────────────────────
+  async function uploadFile(convId, file, isSingleView = false) {
+    const form = new FormData()
+    form.append('file', file)
+    if (isSingleView) form.append('is_single_view', '1')
+
+    const res = await api.post(`/conversations/${convId}/upload`, form, {
+        // headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => {
+            uploadProgress.value = Math.round((e.loaded / e.total) * 100)
+        },
+    })
+
+    addMessage(convId, res.data.message)
+    updateLastMessage(convId, res.data.message)
+    uploadProgress.value = 0
+    return res.data.message
   }
 
   async function sendFile(convId, file) {
@@ -176,7 +224,7 @@ export const useChatStore = defineStore('chat', () => {
             msg.seen_at  = data.read_at
         }
     })
-    })
+     })
 
     .listen('.message.reacted', (data) => {
     const msgs = messages.value[data.conversation_id] ?? []
@@ -200,6 +248,28 @@ export const useChatStore = defineStore('chat', () => {
         msg.reactions = msg.reactions.filter(r => r.user_id !== data.user_id)
     }
      })
+
+    .listen('.message.updated', (data) => {
+    const msgs = messages.value[data.conversation_id] ?? []
+    const msg  = msgs.find(m => m.id === data.id)
+    if (msg) {
+        msg.message    = data.message
+        msg.updated_at = data.updated_at
+    }
+     })
+
+
+    .listen('.message.deleted', (data) => {
+    const msgs = messages.value[data.conversation_id] ?? []
+    const msg  = msgs.find(m => m.id === data.message_id)
+    if (msg) {
+        msg.is_deleted = true
+        msg.message    = null
+        msg.file_url   = null
+    }
+     })
+
+
   }
 
   function unsubscribeFromConversation(convId) {
@@ -267,6 +337,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   return {
+    uploadProgress,
+    editMessage,
+    deleteMessage,
+    uploadFile,
     conversations,
     messages,
     typingUsers,
