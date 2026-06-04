@@ -20,6 +20,9 @@
         </RouterLink>
         <RouterLink to="/groups" class="gc-nav-icon" active-class="active" title="Groupes">
           <i class="ti ti-users-group"></i>
+          </RouterLink>
+        <RouterLink to="/users" class="gc-nav-icon" active-class="active" title="Contacts">
+          <i class="ti ti-address-book"></i>
         </RouterLink>
         <RouterLink to="/statuses" class="gc-nav-icon" active-class="active" title="Statuts">
           <i class="ti ti-circle-dashed"></i>

@@ -5,10 +5,10 @@ use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\MessageReactionController;
 use App\Http\Controllers\Api\GroupController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\PostController;
-use App\Http\Controllers\Api\UserController;
 
 // ─── Routes publiques ─────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -18,6 +18,9 @@ Route::prefix('auth')->group(function () {
 
 // ─── Routes protégées ────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
+    // Authentification des WebSockets (Broadcasting)
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
     // Auth
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me',      [AuthController::class, 'me']);
@@ -82,5 +85,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/messages/{id}/reactions',  [MessageReactionController::class, 'destroy']);
     Route::post('/conversations/{id}/messages/{msgId}/view', [MessageController::class, 'viewOnce']);
 
+
+    //users
+    Route::get('/all-users', [UserController::class, 'getAllUsers']);
+    Route::get('/friends', [UserController::class, 'getFriends']);
+    Route::get('/friend-requests', [UserController::class, 'getFriendRequests']);
+    Route::post('/friend-requests/{id}', [UserController::class, 'handleFriendRequest']);
 
 });

@@ -10,7 +10,7 @@ const authStore = useAuthStore()
 const showCreateModal = ref(false)
 const showDetailsModal = ref(false)
 const selectedGroup = ref(null)
-const allUsers = ref([])
+const friends = ref([])
 const searchUser = ref('')
 
 const newGroup = ref({
@@ -26,20 +26,20 @@ const editingGroup = ref({
 
 onMounted(async () => {
   await groupeStore.fetchGroupes()
-  fetchUsers()
+  fetchFriends()
 })
 
-const fetchUsers = async () => {
+const fetchFriends = async () => {
   try {
-    const response = await api.get('/users')
-    allUsers.value = response.data.data
+    const response = await api.get('/friends')
+    friends.value = response.data.friends
   } catch (err) {
-    console.error("Erreur lors de la récupération des utilisateurs", err)
+    console.error("Erreur lors de la récupération des amis", err)
   }
 }
 
-const filteredUsers = computed(() => {
-  return allUsers.value.filter(u => 
+const filteredFriends = computed(() => {
+  return friends.value.filter(u => 
     u.username.toLowerCase().includes(searchUser.value.toLowerCase()) ||
     u.email.toLowerCase().includes(searchUser.value.toLowerCase())
   )
@@ -262,12 +262,15 @@ const toggleMemberSelection = (userId) => {
             </div>
             
             <div class="form-group">
-              <label>Inviter des membres</label>
+              <label>Inviter des amis</label>
               <div class="search-container">
-                <input v-model="searchUser" placeholder="Rechercher par nom ou email..." class="gc-input search-input">
+                <input v-model="searchUser" placeholder="Rechercher parmi vos amis..." class="gc-input search-input">
               </div>
               <div class="user-selection-list">
-                <div v-for="user in filteredUsers" :key="user.id" 
+                <div v-if="filteredFriends.length === 0" class="empty-list-info">
+                  Aucun ami trouvé.
+                </div>
+                <div v-for="user in filteredFriends" :key="user.id" 
                      @click="toggleMemberSelection(user.id)"
                      :class="['user-select-item', newGroup.member_ids.includes(user.id) ? 'selected' : '']">
                   <div class="user-avatar-mini" :style="{ background: `linear-gradient(135deg, #ec4899 0%, #db2777 100%)` }">
@@ -331,17 +334,17 @@ const toggleMemberSelection = (userId) => {
               </div>
               
               <div v-if="isGroupAdmin(selectedGroup)" class="add-member-search">
-                 <input v-model="searchUser" placeholder="Ajouter un membre..." class="gc-input">
-                 <TransitionGroup name="list" tag="div" class="mini-user-list" v-if="searchUser">
-                    <div v-for="user in filteredUsers.filter(u => !selectedGroup.members.find(m => m.id === u.id))" 
-                         :key="user.id" class="mini-user-item">
+             <input v-model="searchUser" placeholder="Rechercher un ami à ajouter..." class="gc-input">
+             <TransitionGroup name="list" tag="div" class="mini-user-list" v-if="searchUser">
+                <div v-for="user in filteredFriends.filter(u => !selectedGroup.members.find(m => m.id === u.id))" 
+                     :key="user.id" class="mini-user-item">
                        <div class="user-info">
                          <span class="name">{{ user.username }}</span>
                        </div>
                        <button @click="handleAddMember(user.id)" class="btn-add-mini">+</button>
-                    </div>
-                 </TransitionGroup>
-              </div>
+                </div>
+             </TransitionGroup>
+          </div>
 
               <div class="members-list">
                 <div v-for="member in selectedGroup.members" :key="member.id" class="member-item">
@@ -600,6 +603,13 @@ const toggleMemberSelection = (userId) => {
 
 .user-select-item:hover { background: var(--gc-gray-50); }
 .user-select-item.selected { background: var(--gc-accent); }
+
+.empty-list-info {
+  padding: var(--gc-spacing-md);
+  text-align: center;
+  color: var(--gc-gray-500);
+  font-size: var(--gc-font-size-sm);
+}
 
 .user-avatar-mini {
   width: 32px;

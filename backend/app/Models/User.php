@@ -35,6 +35,11 @@ class User extends Authenticatable
     ];
 
     // ─── Relations ───────────────────────────────────
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
     public function profile()
     {
         return $this->hasOne(Profile::class);
@@ -105,10 +110,5 @@ class User extends Authenticatable
     public function getAvatarAttribute(): ?string
     {
         return $this->profile?->profile_photo;
-    }
-
-    public function role()
-    {
-    return $this->belongsTo(Role::class);
     }
 }

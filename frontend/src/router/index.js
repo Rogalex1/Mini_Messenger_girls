@@ -55,6 +55,9 @@ const routes = [
       //Groups (CHRISTELLE)
       { path: 'groups', name: 'groups', component: () => import('@/Views/GroupsView.vue') },
       
+      // Membres / Contacts
+      { path: 'users', name: 'users', component: () => import('@/Views/Users.vue') },
+      
       // Statuts
       { path: 'statuses', name: 'statuses', component: () => import('@/Views/StatusView.vue') },
       
