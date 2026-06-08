@@ -6,6 +6,7 @@ export const useGroupeStore = defineStore('groupes', () => {
   const groupes = ref([])
   const loading = ref(false)
   const error = ref(null)
+  const currentMessages= ref([])
 
   // Affichage des groupes
   const fetchGroupes = async () => {
@@ -13,7 +14,6 @@ export const useGroupeStore = defineStore('groupes', () => {
     error.value = null
 
     try {
-      console.log('bonjour');
       const response = await api.get('/groups')
       groupes.value = response.data.data
       return true
@@ -23,6 +23,21 @@ export const useGroupeStore = defineStore('groupes', () => {
       return false
     } finally {
       loading.value = false
+    }
+  }
+
+ const fetchGroupMessage =async (groupId) =>{
+    loading.value=true
+    error.value=null
+
+    try {
+      const res=await api.get(`/groups/${groupId}/messages`)
+      currentMessages.value=res.data.data
+      return true
+    } catch (error) {
+      return (false)
+    }finally{
+      loading.value=false
     }
   }
 
@@ -56,7 +71,22 @@ export const useGroupeStore = defineStore('groupes', () => {
       loading.value = false
     }
   }
-
+  // Création d'un groupe
+  const sendGroupMessages = async (groupId , content) => {
+    loading.value = true
+    try {
+      const response = await api.post(`/groups/${groupId}/messages`, { message: content, type: 'text' })
+      currentMessages.value.unshift(response.data.data)
+      return response.data.data
+    } catch (err) {
+      error.value = "Impossible d'ajouter le groupe"
+      console.error(err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+  
   // Mise à jour d'un groupe
   const updateGroup = async (id, groupData) => {
     loading.value = true
@@ -179,7 +209,11 @@ export const useGroupeStore = defineStore('groupes', () => {
     removeMember,
     promoteToAdmin,
     demoteFromAdmin,
-    leaveGroup
+    leaveGroup,
+
+    currentMessages,
+    fetchGroupMessage,
+    sendGroupMessages,
   }
 })
 

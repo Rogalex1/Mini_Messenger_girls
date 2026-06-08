@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\GroupMessageController;
+
 
 // ─── Routes publiques ─────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -40,6 +42,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/members/{userId}/promote', [GroupController::class, 'promoteToAdmin']);
         Route::post('/{id}/members/{userId}/demote', [GroupController::class, 'demoteFromAdmin']);
         Route::post('/{id}/leave', [GroupController::class, 'leave']);
+
+        Route::get('/{id}/messages', [GroupMessageController::class, 'index']);
+        Route::post('/{id}/messages', [GroupMessageController::class, 'store']);
+
     });
 
     // Publications

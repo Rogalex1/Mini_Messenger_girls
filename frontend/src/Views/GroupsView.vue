@@ -2,16 +2,21 @@
 import { ref, onMounted, computed } from 'vue'
 import { useGroupeStore } from '@/stores/Groupe'
 import { useAuthStore } from '@/stores/auth'
+import { useRouter, useRoute } from 'vue-router'
 import api from '@/api/axios'
 
 const groupeStore = useGroupeStore()
 const authStore = useAuthStore()
+const router = useRouter()
+const route = useRoute()
 
 const showCreateModal = ref(false)
 const showDetailsModal = ref(false)
 const selectedGroup = ref(null)
 const friends = ref([])
 const searchUser = ref('')
+const searchGroup = ref('')
+const activeGroupId = ref(route.params.id ? Number(route.params.id) : null)
 
 const newGroup = ref({
   name: '',
@@ -44,6 +49,17 @@ const filteredFriends = computed(() => {
     u.email.toLowerCase().includes(searchUser.value.toLowerCase())
   )
 })
+
+const filteredGroupes = computed(() => {
+  if (!searchGroup.value) return groupeStore.groupes
+  const q = searchGroup.value.toLowerCase()
+  return groupeStore.groupes.filter(g => g.name.toLowerCase().includes(q))
+})
+
+const selectGroup = (groupe) => {
+  activeGroupId.value = groupe.id
+  router.push(`/groups/${groupe.id}`)
+}
 
 const isGroupAdmin = (group) => {
   if (!group || !authStore.user) return false
@@ -188,10 +204,21 @@ const toggleMemberSelection = (userId) => {
     newGroup.value.member_ids.push(userId)
   }
 }
+
+const getGradientColor = (id) => {
+  const colors = [
+    'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+    'linear-gradient(135deg, #f472b6 0%, #ec4899 100%)',
+    'linear-gradient(135deg, #be185d 0%, #9f1239 100%)',
+    'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)',
+  ]
+  return colors[id % colors.length]
+}
 </script>
 
 <template>
-  <div class="group-page">
+  <div class="gc-groups">
+
     <!-- Notification Toast -->
     <Transition name="toast">
       <div v-if="notification.show" :class="['toast', notification.type]">
@@ -199,46 +226,62 @@ const toggleMemberSelection = (userId) => {
       </div>
     </Transition>
 
-    <div class="header">
-      <h2 class="gc-text-primary">Mes Groupes</h2>
-      <button @click="showCreateModal = true" class="gc-btn gc-btn-primary">
-        <span class="icon">+</span> Créer un groupe
-      </button>
-    </div>
+    <!-- Panel gauche -->
+    <aside class="gc-panel">
+      <div class="gc-panel-header">
+        <h1>Groupes</h1>
+        <button class="gc-add-btn" @click="showCreateModal = true" title="Créer un groupe">
+          <i class="ti ti-plus"></i>
+        </button>
+      </div>
 
-    <div v-if="groupeStore.loading && !groupeStore.groupes.length" class="loading-state">
-      <div class="spinner"></div>
-      <p>Chargement de vos groupes...</p>
-    </div>
-    
-    <div v-else-if="groupeStore.error" class="error gc-glass">
-      <p>{{ groupeStore.error }}</p>
-    </div>
+      <div class="gc-search">
+        <i class="ti ti-search"></i>
+        <input v-model="searchGroup" placeholder="Rechercher..." />
+      </div>
 
-    <div v-else class="group-grid">
-      <div v-for="groupe in groupeStore.groupes" :key="groupe.id" 
-           class="group-card gc-glass" @click="openDetails(groupe)">
-        <div class="group-avatar-container">
-          <img :src="groupe.photo || `https://ui-avatars.com/api/?name=${groupe.name}&background=ec4899&color=fff`" 
-               alt="Avatar" class="group-avatar">
-          <div class="admin-badge" v-if="isGroupAdmin(groupe)">
-            👑
-          </div>
+      <div class="gc-group-list">
+        <div v-if="groupeStore.loading && !groupeStore.groupes.length" class="gc-loading">
+          <div class="spinner"></div>
         </div>
-        <div class="group-content">
-          <h3>{{ groupe.name }}</h3>
-          <p class="description">{{ groupe.description || 'Pas de description' }}</p>
-          <div class="footer">
-             <span class="member-count">👥 {{ groupe.members?.length || 0 }} membres</span>
+
+        <div v-else-if="groupeStore.groupes?.length === 0" class="gc-empty">
+          <i class="ti ti-users-group"></i>
+          <p>Aucun groupe</p>
+        </div>
+
+        <div
+          v-for="groupe in filteredGroupes"
+          :key="groupe.id"
+          class="gc-group-item"
+          :class="{ active: activeGroupId === groupe.id }"
+          @click="selectGroup(groupe)"
+        >
+          <div class="gc-group-av" :style="{ background: getGradientColor(groupe.id) }">
+            {{ groupe.name.charAt(0).toUpperCase() }}
+            <span v-if="isGroupAdmin(groupe)" class="crown">👑</span>
+          </div>
+          <div class="gc-group-info">
+            <div class="gc-group-top">
+              <span class="gc-group-name">{{ groupe.name }}</span>
+              <span class="gc-group-count">👥 {{ groupe.members?.length || 0 }}</span>
+            </div>
+            <p class="gc-group-desc">{{ groupe.description || 'Pas de description' }}</p>
           </div>
         </div>
       </div>
-    </div>
+    </aside>
 
-    <div v-if="!groupeStore.loading && groupeStore.groupes?.length === 0" class="empty-state gc-glass">
-      <div class="empty-icon">💬</div>
-      <p>Vous n'avez rejoint aucun groupe pour le moment.</p>
-      <button @click="showCreateModal = true" class="gc-btn gc-btn-secondary">Créer mon premier groupe</button>
+    <!-- Panel droit -->
+    <div class="gc-main">
+      <RouterView v-if="activeGroupId" />
+      <div v-else class="gc-welcome">
+        <div class="gc-welcome-icon">
+          <i class="ti ti-users-group"></i>
+        </div>
+        <h2>Vos Groupes</h2>
+        <p>Sélectionnez un groupe pour commencer à chatter</p>
+      </div>
     </div>
 
     <!-- Modal Création -->
@@ -402,389 +445,321 @@ const toggleMemberSelection = (userId) => {
         </div>
       </div>
     </Transition>
-  </div>
+    </div><!-- fin gc-groups -->
 </template>
 
 <style scoped>
-.group-page {
-  padding: var(--gc-spacing-lg);
-  max-width: 1000px;
-  margin: 0 auto;
-  min-height: 100vh;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--gc-spacing-xl);
-}
-
-.header h2 {
-  font-size: var(--gc-font-size-2xl);
-  font-weight: 800;
-  background: linear-gradient(135deg, var(--gc-primary) 0%, var(--gc-secondary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.group-grid {
+/* ─── Layout deux colonnes ────────────────── */
+.gc-groups {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--gc-spacing-lg);
-}
-
-.group-card {
-  display: flex;
-  padding: var(--gc-spacing-lg);
-  border-radius: var(--gc-radius-2xl);
-  cursor: pointer;
-  transition: all var(--gc-transition-base);
-  border: 1px solid var(--gc-glass-border);
-}
-
-.group-card:hover {
-  transform: translateY(-5px);
-  background: var(--gc-white);
-  box-shadow: 0 20px 25px -5px rgba(236, 72, 153, 0.1);
-}
-
-.group-avatar-container {
-  position: relative;
-  margin-right: var(--gc-spacing-lg);
-}
-
-.group-avatar {
-  width: 70px;
-  height: 70px;
-  border-radius: var(--gc-radius-2xl);
-  object-fit: cover;
-  border: 3px solid var(--gc-white);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-}
-
-.admin-badge {
-  position: absolute;
-  bottom: -5px;
-  right: -5px;
-  background: var(--gc-white);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  font-size: 0.9rem;
-}
-
-.group-content h3 {
-  margin: 0;
-  font-size: var(--gc-font-size-lg);
-  color: var(--gc-gray-800);
-}
-
-.description {
-  margin: var(--gc-spacing-xs) 0;
-  color: var(--gc-gray-500);
-  font-size: var(--gc-font-size-sm);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  grid-template-columns: 300px 1fr;
+  height: 100vh;
   overflow: hidden;
 }
 
-.member-count {
-  font-size: var(--gc-font-size-xs);
-  color: var(--gc-primary);
-  font-weight: 600;
-  background: var(--gc-accent);
-  padding: 2px 8px;
-  border-radius: var(--gc-radius-full);
+/* ─── Panel gauche ────────────────────────── */
+.gc-panel {
+  background: #fff;
+  border-right: .5px solid #f0d6f5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* Modals */
+.gc-panel-header {
+  padding: 20px 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gc-panel-header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.gc-add-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: .5px solid #e5e7eb;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9ca3af;
+  transition: all .15s;
+}
+.gc-add-btn:hover { border-color: #a855f7; color: #a855f7; }
+.gc-add-btn i { font-size: 16px; }
+
+.gc-search {
+  margin: 0 12px 12px;
+  background: #fdf4ff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.gc-search i { font-size: 15px; color: #c4b5fd; }
+.gc-search input {
+  border: none; background: transparent;
+  font-size: 13px; color: #1a1a2e; outline: none; flex: 1;
+}
+.gc-search input::placeholder { color: #c4b5fd; }
+
+/* Liste groupes */
+.gc-group-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 6px 10px;
+}
+.gc-group-list::-webkit-scrollbar { width: 3px; }
+.gc-group-list::-webkit-scrollbar-thumb { background: #f0d6f5; border-radius: 99px; }
+
+.gc-group-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.gc-group-item:hover,
+.gc-group-item.active { background: #fdf4ff; }
+
+.gc-group-av {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600; color: #fff;
+  flex-shrink: 0; position: relative;
+}
+
+.crown {
+  position: absolute;
+  bottom: -3px; right: -3px;
+  font-size: 10px;
+}
+
+.gc-group-info { flex: 1; min-width: 0; }
+
+.gc-group-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.gc-group-name { font-size: 14px; font-weight: 500; color: #1a1a2e; }
+.gc-group-count { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+
+.gc-group-desc {
+  font-size: 12px; color: #9ca3af;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.gc-loading {
+  display: flex; justify-content: center; padding: 30px;
+}
+
+.gc-empty {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  padding: 40px 20px; color: #c4b5fd;
+}
+.gc-empty i { font-size: 36px; }
+.gc-empty p { font-size: 13px; color: #9ca3af; }
+
+/* ─── Panel droit ─────────────────────────── */
+.gc-main {
+  background: #fdf0f8;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.gc-welcome {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px;
+}
+
+.gc-welcome-icon {
+  width: 72px; height: 72px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #f472b6, #a855f7);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 8px;
+}
+.gc-welcome-icon i { font-size: 36px; color: #fff; }
+.gc-welcome h2 { font-size: 20px; font-weight: 600; color: #1a1a2e; }
+.gc-welcome p { font-size: 14px; color: #9ca3af; }
+
+/* ─── Spinner ─────────────────────────────── */
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #f0d6f5;
+  border-top: 3px solid #ec4899;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Toast ───────────────────────────────── */
+.toast {
+  position: fixed; top: 20px; right: 20px;
+  padding: 12px 24px; border-radius: 12px;
+  color: white; z-index: 2000;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,.1);
+  font-weight: 600;
+}
+.toast.success { background: #10b981; }
+.toast.error { background: #ef4444; }
+
+/* ─── Modals ──────────────────────────────── */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(236, 72, 153, 0.1);
   backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: var(--gc-spacing-md);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 16px;
 }
 
 .modal {
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  border-radius: var(--gc-radius-2xl);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  width: 100%; max-width: 500px; max-height: 90vh;
+  border-radius: 24px; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: #fff;
+  box-shadow: 0 20px 40px rgba(236,72,153,.15);
 }
 
 .modal-header {
-  padding: var(--gc-spacing-lg);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--gc-gray-100);
+  padding: 20px; display: flex;
+  justify-content: space-between; align-items: center;
+  border-bottom: 1px solid #f3f4f6;
 }
 
-.header-info {
-  display: flex;
-  align-items: center;
-  gap: var(--gc-spacing-md);
-}
+.header-info { display: flex; align-items: center; gap: 12px; }
+.header-avatar { width: 40px; height: 40px; border-radius: 10px; }
 
-.header-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--gc-radius-md);
-}
-
-.modal-body {
-  padding: var(--gc-spacing-lg);
-  overflow-y: auto;
-}
+.modal-body { padding: 20px; overflow-y: auto; }
 
 .modal-footer {
-  padding: var(--gc-spacing-lg);
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--gc-spacing-md);
-  background: var(--gc-gray-50);
-  border-top: 1px solid var(--gc-gray-100);
+  padding: 16px 20px; display: flex;
+  justify-content: flex-end; gap: 12px;
+  background: #f9fafb; border-top: 1px solid #f3f4f6;
 }
 
-.form-group {
-  margin-bottom: var(--gc-spacing-lg);
-}
-
+.form-group { margin-bottom: 16px; }
 .form-group label {
-  display: block;
-  margin-bottom: var(--gc-spacing-xs);
-  font-weight: 600;
-  color: var(--gc-gray-700);
-  font-size: var(--gc-font-size-sm);
+  display: block; margin-bottom: 6px;
+  font-weight: 600; color: #374151; font-size: 13px;
 }
 
 .btn-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: var(--gc-gray-400);
-  cursor: pointer;
-  transition: color var(--gc-transition-fast);
+  background: none; border: none;
+  font-size: 1.5rem; color: #9ca3af; cursor: pointer;
 }
+.btn-close:hover { color: #ec4899; }
 
-.btn-close:hover { color: var(--gc-primary); }
-
-/* User Selection */
 .user-selection-list {
-  max-height: 250px;
-  overflow-y: auto;
-  border: 1px solid var(--gc-gray-100);
-  border-radius: var(--gc-radius-lg);
-  background: var(--gc-white);
+  max-height: 250px; overflow-y: auto;
+  border: 1px solid #f3f4f6; border-radius: 12px; background: #fff;
 }
 
 .user-select-item {
-  padding: var(--gc-spacing-sm) var(--gc-spacing-md);
-  display: flex;
-  align-items: center;
-  gap: var(--gc-spacing-md);
-  cursor: pointer;
-  transition: background var(--gc-transition-fast);
+  padding: 8px 12px; display: flex;
+  align-items: center; gap: 12px; cursor: pointer;
 }
-
-.user-select-item:hover { background: var(--gc-gray-50); }
-.user-select-item.selected { background: var(--gc-accent); }
+.user-select-item:hover { background: #f9fafb; }
+.user-select-item.selected { background: #fdf4ff; }
 
 .empty-list-info {
-  padding: var(--gc-spacing-md);
-  text-align: center;
-  color: var(--gc-gray-500);
-  font-size: var(--gc-font-size-sm);
+  padding: 16px; text-align: center;
+  color: #9ca3af; font-size: 13px;
 }
 
 .user-avatar-mini {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 0.8rem;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: bold; font-size: 13px;
 }
 
-.user-info-mini {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
+.user-info-mini { flex: 1; display: flex; flex-direction: column; }
+.user-info-mini .username { font-weight: 600; font-size: 14px; }
+.user-info-mini .email { font-size: 12px; color: #9ca3af; }
+.check-icon { color: #ec4899; font-weight: bold; }
 
-.user-info-mini .username { font-weight: 600; font-size: 0.9rem; }
-.user-info-mini .email { font-size: 0.75rem; color: var(--gc-gray-500); }
-
-.check-icon { color: var(--gc-primary); font-weight: bold; }
-
-/* Member List */
-.members-section {
-  margin-top: var(--gc-spacing-xl);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--gc-spacing-md);
-}
+.members-section { margin-top: 20px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 
 .member-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--gc-spacing-sm) 0;
-  border-bottom: 1px solid var(--gc-gray-50);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid #f9fafb;
 }
 
-.member-info-container {
-  display: flex;
-  align-items: center;
-  gap: var(--gc-spacing-md);
-}
+.member-info-container { display: flex; align-items: center; gap: 10px; }
 
 .member-avatar-mini {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: bold;
 }
 
-.member-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.member-name { font-weight: 600; font-size: 0.95rem; }
-.member-role-tag {
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  width: fit-content;
-}
-.member-role-tag.admin { background: var(--gc-accent); color: var(--gc-primary); }
-.member-role-tag.member { background: var(--gc-gray-100); color: var(--gc-gray-500); }
+.member-text { display: flex; flex-direction: column; }
+.member-name { font-weight: 600; font-size: 14px; }
+.member-role-tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; width: fit-content; }
+.member-role-tag.admin { background: #fdf4ff; color: #ec4899; }
+.member-role-tag.member { background: #f3f4f6; color: #9ca3af; }
 
 .action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 5px;
-  border-radius: var(--gc-radius-sm);
-  transition: background var(--gc-transition-fast);
+  background: none; border: none; cursor: pointer;
+  padding: 5px; border-radius: 6px;
 }
-
-.action-btn:hover { background: var(--gc-gray-100); }
+.action-btn:hover { background: #f3f4f6; }
 .action-btn.remove:hover { color: #dc3545; }
 
-/* Toast Notification */
-.toast {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: var(--gc-spacing-md) var(--gc-spacing-xl);
-  border-radius: var(--gc-radius-lg);
-  color: white;
-  z-index: 2000;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  font-weight: 600;
+.add-member-search { margin-bottom: 12px; }
+.mini-user-list { margin-top: 8px; }
+.mini-user-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 8px; border-radius: 8px; background: #f9fafb; margin-bottom: 4px;
+}
+.btn-add-mini {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: none; background: #ec4899; color: white;
+  cursor: pointer; font-size: 16px; line-height: 1;
 }
 
-.toast.success { background: #10b981; }
-.toast.error { background: #ef4444; }
-
-/* Danger Zone */
-.danger-zone {
-  flex-direction: column;
-  gap: var(--gc-spacing-sm);
-}
-
-.btn-delete { background: #fee2e2; color: #dc3545; width: 100%; border: 1px solid #fecaca; }
+.danger-zone { flex-direction: column; gap: 8px; }
+.btn-delete { background: #fee2e2; color: #dc3545; width: 100%; border: 1px solid #fecaca; padding: 10px; border-radius: 10px; cursor: pointer; }
 .btn-delete:hover { background: #fecaca; }
+.btn-leave { background: #f3f4f6; color: #374151; width: 100%; border: none; padding: 10px; border-radius: 10px; cursor: pointer; }
+.btn-leave:hover { background: #e5e7eb; }
+.btn-full { width: 100%; margin-top: 12px; }
 
-.btn-leave { background: var(--gc-gray-100); color: var(--gc-gray-700); width: 100%; }
-.btn-leave:hover { background: var(--gc-gray-200); }
+.confirm-modal { max-width: 350px; text-align: center; }
+.confirm-icon { font-size: 3rem; margin-bottom: 12px; }
+.confirm-overlay { z-index: 2100; }
 
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: var(--gc-spacing-3xl);
-  margin-top: var(--gc-spacing-2xl);
-  border-radius: var(--gc-radius-2xl);
-}
-
-.empty-icon { font-size: 4rem; margin-bottom: var(--gc-spacing-md); }
+.group-info-display { margin-bottom: 16px; }
+.group-info-display h3 { font-size: 18px; font-weight: 600; color: #1a1a2e; }
+.group-info-display p { color: #9ca3af; font-size: 14px; margin-top: 4px; }
 
 /* Transitions */
 .toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
-.toast-enter-from { transform: translateX(100px); opacity: 0; }
-.toast-leave-to { transform: translateX(100px); opacity: 0; }
+.toast-enter-from, .toast-leave-to { transform: translateX(100px); opacity: 0; }
 
 .modal-enter-active, .modal-leave-active { transition: all 0.3s ease; }
-.modal-enter-from { transform: scale(0.9); opacity: 0; }
-.modal-leave-to { transform: scale(0.9); opacity: 0; }
+.modal-enter-from, .modal-leave-to { transform: scale(0.9); opacity: 0; }
 
 .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
 .list-enter-from, .list-leave-to { opacity: 0; transform: translateY(-10px); }
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--gc-spacing-3xl);
-  color: var(--gc-primary);
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--gc-accent);
-  border-top: 4px solid var(--gc-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: var(--gc-spacing-md);
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.btn-full { width: 100%; margin-top: var(--gc-spacing-md); }
-
-.confirm-modal {
-  max-width: 350px;
-  text-align: center;
-}
-
-.confirm-icon {
-  font-size: 3rem;
-  margin-bottom: var(--gc-spacing-md);
-}
-
-.confirm-overlay {
-  z-index: 2100;
-}
 </style>
