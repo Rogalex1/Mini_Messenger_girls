@@ -12,33 +12,62 @@ class ConversationResource extends JsonResource
             ? $this->userTwo
             : $this->userOne;
 
-        // Statut de la conversation pour cet user
-        $status = \App\Models\FriendRequest::where(function ($q) use ($user, $otherUser) {
+        // Get friend request
+        $friendRequest = \App\Models\FriendRequest::where(function ($q) use ($user, $otherUser) {
                 $q->where('sender_id', $user->id)->where('receiver_id', $otherUser->id);
             })->orWhere(function ($q) use ($user, $otherUser) {
                 $q->where('sender_id', $otherUser->id)->where('receiver_id', $user->id);
-            })->value('status');
+            })->first();
+
+        // Determine status
+        $status = 'accepted';
+        if ($friendRequest) {
+            if ($friendRequest->status === 'pending') {
+                // If current user is the receiver, show pending
+                if ($friendRequest->receiver_id === $user->id) {
+                    $status = 'pending';
+                }
+                // If current user is the sender, show accepted (or nothing)
+            } else {
+                $status = $friendRequest->status;
+            }
+        }
+
+        // Check if blocked
+        $hasBlockedOther = \App\Models\BlockedUser::where([
+            'blocker_id' => $user->id,
+            'blocked_user_id' => $otherUser->id,
+        ])->exists();
+
+        // Get last message, but only from user if they've blocked the other
+        $lastMessage = null;
+        if ($this->lastMessage) {
+            if (!$hasBlockedOther || $this->lastMessage->sender_id === $user->id) {
+                $lastMessage = [
+                    'id' => $this->lastMessage->id,
+                    'message' => $this->lastMessage->is_deleted ? 'Message supprimé' : $this->lastMessage->message,
+                    'type' => $this->lastMessage->type,
+                    'sender_id' => $this->lastMessage->sender_id,
+                    'is_seen' => $this->lastMessage->is_seen,
+                    'created_at' => $this->lastMessage->created_at?->toISOString(),
+                ];
+            }
+        }
 
         // Messages non lus
-        $unreadCount = \App\Models\Message::where('conversation_id', $this->id)
-            ->where('receiver_id', $user->id)
-            ->where('is_seen', false)
-            ->count();
+        $unreadCount = 0;
+        if (!$hasBlockedOther) {
+            $unreadCount = \App\Models\Message::where('conversation_id', $this->id)
+                ->where('receiver_id', $user->id)
+                ->where('is_seen', false)
+                ->count();
+        }
 
         return [
             'id'           => $this->id,
-            'status'       => $status ?? 'accepted',
+            'status'       => $status,
             'unread_count' => $unreadCount,
-            'last_message' => $this->lastMessage ? [
-                'id'         => $this->lastMessage->id,
-                'message'    => $this->lastMessage->is_deleted
-                                    ? 'Message supprimé'
-                                    : $this->lastMessage->message,
-                'type'       => $this->lastMessage->type,
-                'sender_id'  => $this->lastMessage->sender_id,
-                'is_seen'    => $this->lastMessage->is_seen,
-                'created_at' => $this->lastMessage->created_at?->toISOString(),
-            ] : null,
+            'last_message' => $lastMessage,
             'other_user'   => [
                 'id'        => $otherUser->id,
                 'username'  => $otherUser->username,

@@ -266,7 +266,7 @@ const getGradientColor = (id) => {
               <span class="gc-group-name">{{ groupe.name }}</span>
               <span class="gc-group-count">👥 {{ groupe.members?.length || 0 }}</span>
             </div>
-            <p class="gc-group-desc">{{ groupe.description || 'Pas de description' }}</p>
+            <!-- <p class="gc-group-desc">{{ groupe.description || 'Pas de description' }}</p> -->
           </div>
         </div>
       </div>
@@ -302,7 +302,7 @@ const getGradientColor = (id) => {
             <div class="form-group">
               <label>Description</label>
               <textarea v-model="newGroup.description" placeholder="De quoi parle ce groupe ?" class="gc-input"></textarea>
-            </div>
+            </div>0
             
             <div class="form-group">
               <label>Inviter des amis</label>

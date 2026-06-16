@@ -725,6 +725,8 @@ async function stopRecording() {
 // ── Accepter / Bloquer ──────────────────────────────────
 async function acceptConversation() {
   await chatStore.updateStatus(convId.value, 'accepted')
+  await chatStore.fetchMessages(convId.value)
+  await chatStore.fetchConversations()
 }
 async function blockConversation() {
   await chatStore.updateStatus(convId.value, 'blocked')

@@ -32,7 +32,7 @@ export const useGroupeStore = defineStore('groupes', () => {
 
     try {
       const res=await api.get(`/groups/${groupId}/messages`)
-      currentMessages.value=res.data.data
+      currentMessages.value=res.data.messages
       return true
     } catch (error) {
       return (false)
@@ -76,10 +76,10 @@ export const useGroupeStore = defineStore('groupes', () => {
     loading.value = true
     try {
       const response = await api.post(`/groups/${groupId}/messages`, { message: content, type: 'text' })
-      currentMessages.value.unshift(response.data.data)
-      return response.data.data
+      currentMessages.value.push(response.data.message)
+      return response.data.message
     } catch (err) {
-      error.value = "Impossible d'ajouter le groupe"
+      error.value = "Impossible d'envoyer le message"
       console.error(err)
       throw err
     } finally {
