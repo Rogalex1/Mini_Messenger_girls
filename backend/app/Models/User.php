@@ -77,6 +77,22 @@ class User extends Authenticatable
         return $this->hasMany(Status::class);
     }
 
+    public function viewedStatuses()
+    {
+        return $this->belongsToMany(Status::class, 'status_views', 'viewer_id', 'status_id')
+                    ->withPivot('viewed_at');
+    }
+
+    public function hasUnviewedStatuses()
+    {
+        return $this->statuses()
+                    ->active()
+                    ->whereDoesntHave('views', function ($query) {
+                        $query->where('viewer_id', auth()->id());
+                    })
+                    ->exists();
+    }
+
     public function posts()
     {
         return $this->hasMany(Post::class);

@@ -25,18 +25,43 @@
     </div>
 
     <div class="status-footer">
-      <div class="view-count">
+      <div 
+        v-if="status.views?.length > 0" 
+        class="view-count clickable" 
+        @click="toggleViewers"
+      >
+        👁️ {{ status.views?.length || 0 }} vues
+      </div>
+      <div v-else class="view-count">
         👁️ {{ status.views?.length || 0 }} vues
       </div>
       <button v-if="!isOwner && !isViewed" @click="handleView" class="view-btn gc-btn gc-btn-primary">
         Voir
       </button>
     </div>
+
+    <!-- Liste des viewers -->
+    <div v-if="showViewers && status.views?.length > 0" class="viewers-list">
+      <div class="viewers-header">
+        <span class="viewers-title">Personnes qui ont vu</span>
+        <button @click="toggleViewers" class="close-viewers">×</button>
+      </div>
+      <div class="viewers-content">
+        <div v-for="view in status.views" :key="view.id" class="viewer-item">
+          <div class="viewer-avatar" :style="{ background: getGradientColor(view.viewer?.id) }">
+            {{ view.viewer?.profile?.first_name?.[0] || view.viewer?.username?.[0] || '?' }}
+          </div>
+          <span class="viewer-name">
+            {{ view.viewer?.profile?.first_name }} {{ view.viewer?.profile?.last_name || view.viewer?.username }}
+          </span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   status: {
@@ -46,15 +71,24 @@ const props = defineProps({
   isOwner: {
     type: Boolean,
     default: false
+  },
+  currentUserId: {
+    type: Number,
+    default: null
   }
 })
 
 const emit = defineEmits(['delete', 'view'])
+const showViewers = ref(false)
 
 const isViewed = computed(() => {
-  // TODO: Implement actual viewed status check
-  return false
+  if (!props.currentUserId || !props.status.views) return false
+  return props.status.views.some(v => v.viewer_id === props.currentUserId)
 })
+
+const toggleViewers = () => {
+  showViewers.value = !showViewers.value
+}
 
 const getGradientColor = (id) => {
   const colors = [

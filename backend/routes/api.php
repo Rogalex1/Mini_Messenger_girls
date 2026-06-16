@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('statuses')->group(function () {
           Route::get('/', [StatusController::class, 'index']);
           Route::get('/my', [StatusController::class, 'myStatuses']);
+          Route::get('/user/{userId}', [StatusController::class, 'userStatuses']);
           Route::post('/', [StatusController::class, 'store']);
           Route::get('/{id}', [StatusController::class, 'show']);
           Route::post('/{id}/view', [StatusController::class, 'markAsViewed']);
