@@ -11,19 +11,64 @@ use Illuminate\Support\Facades\Validator;
 
 class StatusController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth:sanctum');
-    }
+   
 
     public function index()
     {
-        $statuses = Status::active()
-            ->with('user.profile', 'views.viewer.profile')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $userId = auth()->id();
+        $user = auth()->user();
 
-        return response()->json($statuses);
+        // Get all friend IDs
+        $friendIds = $user->friends()->pluck('id')->toArray();
+
+        // Récupérer les utilisateurs qui ont des statuts actifs (only friends)
+        $users = \App\Models\User::whereIn('id', $friendIds)
+        ->whereHas('statuses', function ($query) {
+            $query->active();
+        })
+        ->with(['profile', 'statuses' => function ($query) {
+            $query->active()->orderBy('created_at', 'asc');
+        }, 'statuses.views' => function ($query) use ($userId) {
+            $query->where('viewer_id', $userId);
+        }])
+        ->get();
+
+        // Ajouter un flag has_unviewed et trier
+        $users = $users->map(function ($user) use ($userId) {
+            $hasUnviewed = $user->statuses->some(function ($status) {
+                return $status->views->isEmpty();
+            });
+            $user->has_unviewed = $hasUnviewed;
+            return $user;
+        })->sortByDesc('has_unviewed')->values();
+
+        return response()->json($users);
+    }
+
+    public function userStatuses($userId)
+    {
+        $authUser = auth()->user();
+        $user = \App\Models\User::with(['profile', 'statuses' => function ($query) {
+            $query->active()->orderBy('created_at', 'asc');
+        }])->findOrFail($userId);
+
+        // Check if user is a friend or if it's the auth user
+        if ($user->id !== $authUser->id) {
+            $isFriend = $authUser->friends()->where('id', $userId)->exists();
+            abort_if(!$isFriend, 403, 'Vous ne pouvez pas voir les statuts de cet utilisateur');
+        }
+
+        // Marquer automatiquement tous les statuts comme vus
+        foreach ($user->statuses as $status) {
+            if ($status->user_id !== auth()->id()) {
+                StatusView::firstOrCreate(
+                    ['status_id' => $status->id, 'viewer_id' => auth()->id()],
+                    ['viewed_at' => now()]
+                );
+            }
+        }
+
+        return response()->json($user);
     }
 
     public function myStatuses()
@@ -57,7 +102,7 @@ class StatusController extends Controller
 
         if ($request->hasFile('media')) {
             $path = $request->file('media')->store('statuses', 'public');
-            $data['media_url'] = Storage::url($path);
+            $data['media_url'] = $path;
         }
 
         $status = Status::create($data);

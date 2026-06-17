@@ -77,6 +77,22 @@ class User extends Authenticatable
         return $this->hasMany(Status::class);
     }
 
+    public function viewedStatuses()
+    {
+        return $this->belongsToMany(Status::class, 'status_views', 'viewer_id', 'status_id')
+                    ->withPivot('viewed_at');
+    }
+
+    public function hasUnviewedStatuses()
+    {
+        return $this->statuses()
+                    ->active()
+                    ->whereDoesntHave('views', function ($query) {
+                        $query->where('viewer_id', auth()->id());
+                    })
+                    ->exists();
+    }
+
     public function posts()
     {
         return $this->hasMany(Post::class);
@@ -95,6 +111,21 @@ class User extends Authenticatable
     public function media()
     {
         return $this->hasMany(Media::class);
+    }
+
+    public function friends()
+    {
+        $friendIds = \App\Models\FriendRequest::where(function ($query) {
+            $query->where('sender_id', $this->id)
+                  ->orWhere('receiver_id', $this->id);
+        })->where('status', 'accepted')
+        ->get()
+        ->map(function ($req) {
+            return $req->sender_id === $this->id ? $req->receiver_id : $req->sender_id;
+        })
+        ->toArray();
+
+        return \App\Models\User::whereIn('id', $friendIds);
     }
 
     // ─── Helpers ─────────────────────────────────────

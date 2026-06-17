@@ -3,11 +3,14 @@
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\MessageReactionController;
+use App\Http\Controllers\Api\GroupController;
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\GroupMessageController;
+
 
 // ─── Routes publiques ─────────────────────────────
 Route::prefix('auth')->group(function () {
@@ -24,7 +27,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me',      [AuthController::class, 'me']);
 
+    // Users
+    Route::get('/users', [UserController::class, 'index']);
 
+    // Groups
+    Route::prefix('groups')->group(function () {
+        Route::get('/', [GroupController::class, 'index']);
+        Route::post('/', [GroupController::class, 'store']);
+        Route::get('/{id}', [GroupController::class, 'show']);
+        Route::put('/{id}', [GroupController::class, 'update']);
+        Route::delete('/{id}', [GroupController::class, 'destroy']);
+        Route::post('/{id}/members', [GroupController::class, 'addMembers']);
+        Route::delete('/{id}/members/{userId}', [GroupController::class, 'removeMember']);
+        Route::post('/{id}/members/{userId}/promote', [GroupController::class, 'promoteToAdmin']);
+        Route::post('/{id}/members/{userId}/demote', [GroupController::class, 'demoteFromAdmin']);
+        Route::post('/{id}/leave', [GroupController::class, 'leave']);
+
+        Route::get('/{id}/messages', [GroupMessageController::class, 'index']);
+        Route::post('/{id}/messages', [GroupMessageController::class, 'store']);
+
+    });
 
     // Publications
     Route::prefix('posts')->group(function () {
@@ -37,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/like', [PostController::class, 'like']);
         Route::post('/{id}/comment', [PostController::class, 'comment']);
         Route::delete('/{postId}/comments/{commentId}', [PostController::class, 'deleteComment']);
+        Route::post('/{id}/view', [PostController::class, 'incrementView']);
+        Route::post('/{id}/share', [PostController::class, 'share']);
     });
 
     // Statuts
@@ -44,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('statuses')->group(function () {
           Route::get('/', [StatusController::class, 'index']);
           Route::get('/my', [StatusController::class, 'myStatuses']);
+          Route::get('/user/{userId}', [StatusController::class, 'userStatuses']);
           Route::post('/', [StatusController::class, 'store']);
           Route::get('/{id}', [StatusController::class, 'show']);
           Route::post('/{id}/view', [StatusController::class, 'markAsViewed']);

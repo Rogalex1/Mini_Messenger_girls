@@ -22,7 +22,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e) {
       return { success: false, errors: e.response?.data }
     } finally {
-      loading.value = false
+      loading.value = fals
     }
   }
 
