@@ -191,7 +191,8 @@ onMounted(async () => {
 .gc-main {
   flex: 1;
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
 }
 

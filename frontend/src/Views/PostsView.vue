@@ -135,6 +135,8 @@ const sharePost = async (postId) => {
 /* Mobile First */
 .posts-view {
   max-width: 100%;
+  padding: var(--gc-spacing-md);
+  padding-bottom: calc(var(--gc-spacing-md) + 80px);
 }
 
 .page-header {
