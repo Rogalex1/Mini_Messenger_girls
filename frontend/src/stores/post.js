@@ -161,6 +161,41 @@ export const usePostStore = defineStore('post', () => {
     }
   }
 
+  const incrementViews = async (postId) => {
+    try {
+      const response = await api.post(`/posts/${postId}/view`)
+      const index = posts.value.findIndex(p => p.id === postId)
+      if (index !== -1) {
+        posts.value[index].views_count = (posts.value[index].views_count || 0) + 1
+      }
+      const myIndex = myPosts.value.findIndex(p => p.id === postId)
+      if (myIndex !== -1) {
+        myPosts.value[myIndex].views_count = (myPosts.value[myIndex].views_count || 0) + 1
+      }
+      return response.data
+    } catch (err) {
+      console.error('Erreur lors de l\'incrémentation des vues:', err)
+    }
+  }
+
+  const sharePost = async (postId) => {
+    try {
+      const response = await api.post(`/posts/${postId}/share`)
+      const index = posts.value.findIndex(p => p.id === postId)
+      if (index !== -1) {
+        posts.value[index].shares_count = (posts.value[index].shares_count || 0) + 1
+      }
+      const myIndex = myPosts.value.findIndex(p => p.id === postId)
+      if (myIndex !== -1) {
+        myPosts.value[myIndex].shares_count = (myPosts.value[myIndex].shares_count || 0) + 1
+      }
+      return response.data
+    } catch (err) {
+      console.error('Erreur lors du partage:', err)
+      throw err
+    }
+  }
+
   return {
     posts,
     myPosts,
@@ -174,7 +209,9 @@ export const usePostStore = defineStore('post', () => {
     deletePost,
     toggleLike,
     addComment,
-    deleteComment
+    deleteComment,
+    incrementViews,
+    sharePost
   }
 })
 

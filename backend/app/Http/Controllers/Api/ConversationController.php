@@ -43,6 +43,17 @@ class ConversationController extends Controller
             return response()->json(['message' => 'Action invalide.'], 422);
         }
 
+        // Check if either user has blocked the other
+        $isBlocked = \App\Models\BlockedUser::where(function($q) use ($user, $receiverId) {
+            $q->where('blocker_id', $user->id)->where('blocked_user_id', $receiverId);
+        })->orWhere(function($q) use ($user, $receiverId) {
+            $q->where('blocker_id', $receiverId)->where('blocked_user_id', $user->id);
+        })->exists();
+
+        if ($isBlocked) {
+            return response()->json(['message' => 'Cette conversation est bloquée.'], 403);
+        }
+
         // Vérifier si une conversation existe déjà
         $existing = Conversation::where(function ($q) use ($user, $receiverId) {
             $q->where('user_one', $user->id)->where('user_two', $receiverId);
@@ -131,6 +142,21 @@ class ConversationController extends Controller
 
         if ($friendRequest) {
             $friendRequest->update(['status' => $request->status]);
+        }
+
+        // Handle blocking
+        if ($request->status === 'blocked') {
+            // Create blocked user entry
+            \App\Models\BlockedUser::firstOrCreate([
+                'blocker_id' => $user->id,
+                'blocked_user_id' => $otherUserId,
+            ]);
+        } else {
+            // Remove blocked user entry if accepting/refusing
+            \App\Models\BlockedUser::where([
+                'blocker_id' => $user->id,
+                'blocked_user_id' => $otherUserId,
+            ])->delete();
         }
 
         $label = match($request->status) {

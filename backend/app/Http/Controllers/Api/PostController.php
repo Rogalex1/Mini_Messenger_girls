@@ -12,10 +12,10 @@ use Illuminate\Support\Facades\Validator;
 
 class PostController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth:sanctum');
-    }
+    // public function __construct()
+    // {
+    //     $this->middleware('auth:sanctum');
+    // }
 
     public function index()
     {
@@ -169,6 +169,20 @@ class PostController extends Controller
         $comment->delete();
 
         return response()->json(['message' => 'Commentaire supprimé']);
+    }
+
+    public function incrementView($id)
+    {
+        $post = Post::findOrFail($id);
+        $post->increment('views_count');
+        return response()->json(['message' => 'Vue incrémentée', 'views_count' => $post->views_count]);
+    }
+
+    public function share($id)
+    {
+        $post = Post::findOrFail($id);
+        $post->increment('shares_count');
+        return response()->json(['message' => 'Partage enregistré', 'shares_count' => $post->shares_count]);
     }
 }
 

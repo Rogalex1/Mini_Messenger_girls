@@ -5,6 +5,7 @@ import './assets/main.css'
 import App from './App.vue'
 import router from './router'
 import './styles/main.css'
+import './echo'
 
 const app = createApp(App)
 

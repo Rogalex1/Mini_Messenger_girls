@@ -8,6 +8,7 @@ class Status extends Model
     public $timestamps = false;
     protected $fillable = ['user_id', 'media_url', 'type', 'caption', 'expires_at'];
     protected $casts = ['expires_at' => 'datetime', 'created_at' => 'datetime'];
+    protected $appends = ['media_url_full'];
 
     public function user()
     {
@@ -16,6 +17,18 @@ class Status extends Model
     public function views()
     {
         return $this->hasMany(StatusView::class);
+    }
+
+    // Accessor for full media URL
+    public function getMediaUrlFullAttribute()
+    {
+        if ($this->media_url) {
+            if (str_starts_with($this->media_url, 'http')) {
+                return $this->media_url;
+            }
+            return url('storage/' . $this->media_url);
+        }
+        return null;
     }
 
     // Scope : statuts non expirés

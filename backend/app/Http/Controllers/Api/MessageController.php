@@ -12,6 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Events\MessageRead;
 
+use App\Events\MessageUpdated;
+use App\Events\MessageDeleted;
+use Illuminate\Support\Facades\Storage;
+
 class MessageController extends Controller
 {
     // ─── Lister les messages d'une conversation ───────────────
@@ -20,10 +24,23 @@ class MessageController extends Controller
         $user = auth()->user();
         $conv = $this->getConversation($conversationId, $user->id);
 
-        $messages = Message::with(['sender.profile', 'reactions.user', 'replyTo'])
-            ->where('conversation_id', $conversationId)
-            ->orderBy('created_at')
-            ->paginate(50);
+        $otherUserId = $conv->user_one === $user->id ? $conv->user_two : $conv->user_one;
+
+        // Check if current user has blocked the other user
+        $hasBlockedOther = \App\Models\BlockedUser::where([
+            'blocker_id' => $user->id,
+            'blocked_user_id' => $otherUserId,
+        ])->exists();
+
+        $messagesQuery = Message::with(['sender.profile', 'reactions.user', 'replyTo'])
+            ->where('conversation_id', $conversationId);
+
+        // If user has blocked the other, don't show messages from the blocked user
+        if ($hasBlockedOther) {
+            $messagesQuery->where('sender_id', $user->id);
+        }
+
+        $messages = $messagesQuery->orderBy('created_at')->paginate(50);
 
         // Marquer les messages reçus comme "vus"
         Message::where('conversation_id', $conversationId)
@@ -47,17 +64,44 @@ class MessageController extends Controller
         $user = auth()->user();
         $conv = $this->getConversation($conversationId, $user->id);
 
-        // Vérifier que la conv n'est pas bloquée
+        // Vérifier que la conv n'est pas bloquée (only if user has blocked other)
         $this->checkNotBlocked($conv, $user->id);
 
-        $receiverId = $conv->user_one === $user->id
-            ? $conv->user_two
-            : $conv->user_one;
+        $otherUserId = $conv->user_one === $user->id ? $conv->user_two : $conv->user_one;
+
+        // Check if friend request is accepted before saving message
+        $friendRequest = \App\Models\FriendRequest::where(function($q) use ($user, $otherUserId) {
+            $q->where('sender_id', $user->id)->where('receiver_id', $otherUserId);
+        })->orWhere(function($q) use ($user, $otherUserId) {
+            $q->where('sender_id', $otherUserId)->where('receiver_id', $user->id);
+        })->first();
+
+        // Only save message if friend request is accepted or doesn't exist (assumed accepted)
+        if ($friendRequest && $friendRequest->status !== 'accepted') {
+            // Return a response but don't save the message
+            return response()->json([
+                'message' => [
+                    'id' => null,
+                    'conversation_id' => $conversationId,
+                    'sender_id' => $user->id,
+                    'receiver_id' => $otherUserId,
+                    'message' => $request->message,
+                    'type' => $request->type,
+                    'is_seen' => false,
+                    'created_at' => now()->toISOString(),
+                    'sender' => [
+                        'id' => $user->id,
+                        'username' => $user->username,
+                        'profile' => $user->profile,
+                    ],
+                ],
+            ], 200);
+        }
 
         $message = Message::create([
             'conversation_id' => $conversationId,
             'sender_id'       => $user->id,
-            'receiver_id'     => $receiverId,
+            'receiver_id'     => $otherUserId,
             'message'         => $request->message,
             'type'            => $request->type,
             'is_single_view'  => $request->is_single_view ?? false,
@@ -80,69 +124,7 @@ class MessageController extends Controller
     }
 
     // ─── Upload d'un fichier média ────────────────────────────
-    public function upload(Request $request, int $conversationId): JsonResponse
-    {
-        $request->validate([
-            'file' => ['required', 'file', 'max:51200'],
-        ]);
-
-        $user = auth()->user();
-        $conv = $this->getConversation($conversationId, $user->id);
-        $this->checkNotBlocked($conv, $user->id);
-
-        $file = $request->file('file');
-        $mime = $file->getMimeType();
-
-        $type = match(true) {
-            str_starts_with($mime, 'image/') => 'image',
-            str_starts_with($mime, 'video/') => 'video',
-            str_starts_with($mime, 'audio/') => 'audio',
-            default                          => 'file',
-        };
-
-        $path = $file->store("conversations/{$conversationId}", 'public');
-
-        $receiverId = $conv->user_one === $user->id
-            ? $conv->user_two
-            : $conv->user_one;
-
-        $message = Message::create([
-            'conversation_id' => $conversationId,
-            'sender_id'       => $user->id,
-            'receiver_id'     => $receiverId,
-            'message'         => $file->getClientOriginalName(),
-            'type'            => $type,
-            'file_url'        => $path,
-        ]);
-
-        $conv->update([
-            'last_message_id' => $message->id,
-            'updated_at'      => now(),
-        ]);
-
-        $message->load(['sender.profile', 'reactions']);
-
-        broadcast(new MessageSent($message, $user))->toOthers();
-
-        return response()->json([
-            'message' => new MessageResource($message),
-        ], 201);
-    }
-
     // ─── Supprimer un message ─────────────────────────────────
-    public function destroy(int $conversationId, int $messageId): JsonResponse
-    {
-        $user    = auth()->user();
-        $message = Message::where('conversation_id', $conversationId)
-                          ->where('sender_id', $user->id)
-                          ->findOrFail($messageId);
-
-        // Soft delete + marquer comme supprimé
-        $message->update(['is_deleted' => true]);
-        $message->delete();
-
-        return response()->json(['message' => 'Message supprimé.']);
-    }
 
     // ─── Indicateur "est en train d'écrire" ───────────────────
     public function typing(Request $request, int $conversationId): JsonResponse
@@ -178,13 +160,12 @@ class MessageController extends Controller
             ? $conv->user_two
             : $conv->user_one;
 
-        $isBlocked = \App\Models\FriendRequest::where(function ($q) use ($userId, $otherUserId) {
-            $q->where(function ($sq) use ($userId, $otherUserId) {
-                $sq->where('sender_id', $userId)->where('receiver_id', $otherUserId);
-            })->orWhere(function ($sq) use ($userId, $otherUserId) {
-                $sq->where('sender_id', $otherUserId)->where('receiver_id', $userId);
-            });
-        })->where('status', 'blocked')->exists();
+        // Check if current user has blocked the other user (then they can't send messages)
+        // If the other user has blocked current user, current user can still send messages
+        $isBlocked = \App\Models\BlockedUser::where([
+            'blocker_id' => $userId,
+            'blocked_user_id' => $otherUserId,
+        ])->exists();
 
         abort_if($isBlocked, 403, 'Cette conversation est bloquée.');
     }
@@ -254,4 +235,125 @@ public function viewOnce(int $conversationId, int $messageId): JsonResponse
 
     return response()->json(['ok' => true]);
 }
+
+
+
+// ─── Modifier un message ──────────────────────────────
+public function update(Request $request, int $conversationId, int $messageId): JsonResponse
+{
+    $request->validate([
+        'message' => ['required', 'string', 'max:5000'],
+    ]);
+
+    $user    = auth()->user();
+    $message = Message::where('conversation_id', $conversationId)
+                      ->where('sender_id', $user->id)   // seul l'auteur peut modifier
+                      ->where('type', 'text')            // on ne modifie que les textes
+                      ->findOrFail($messageId);
+
+    $message->update([
+        'message' => $request->message,
+    ]);
+
+    // 🔴 WebSocket
+    broadcast(new MessageUpdated($message))->toOthers();
+
+    return response()->json([
+        'message' => new MessageResource($message),
+    ]);
+}
+
+// ─── Supprimer un message ─────────────────────────────
+public function destroy(int $conversationId, int $messageId): JsonResponse
+{
+    $user    = auth()->user();
+    $message = Message::where('conversation_id', $conversationId)
+                      ->where('sender_id', $user->id)
+                      ->findOrFail($messageId);
+
+    // Supprimer le fichier si média
+    if ($message->file_url) {
+        Storage::disk('public')->delete($message->file_url);
+    }
+
+    $message->update([
+        'message'    => null,
+        'file_url'   => null,
+    ]);
+    $message->delete(); // soft delete
+
+    // 🔴 WebSocket
+    broadcast(new MessageDeleted($messageId, $conversationId))->toOthers();
+
+    return response()->json(['message' => 'Message supprimé.']);
+}
+
+// ─── Upload fichier(s) ────────────────────────────────
+    public function upload(Request $request, int $conversationId): JsonResponse
+    {
+
+        $request->validate([
+            'file'           => ['required', 'file', 'max:51200'],  // 50MB
+            'is_single_view' => ['boolean'],
+        ]);
+
+        $user = auth()->user();
+        $conv = $this->getConversation($conversationId, $user->id);
+        $this->checkNotBlocked($conv, $user->id);
+
+        $otherUserId = $conv->user_one === $user->id ? $conv->user_two : $conv->user_one;
+
+        // Check if friend request is accepted before saving message
+        $friendRequest = \App\Models\FriendRequest::where(function($q) use ($user, $otherUserId) {
+            $q->where('sender_id', $user->id)->where('receiver_id', $otherUserId);
+        })->orWhere(function($q) use ($user, $otherUserId) {
+            $q->where('sender_id', $otherUserId)->where('receiver_id', $user->id);
+        })->first();
+
+        // Only save message if friend request is accepted or doesn't exist (assumed accepted)
+        if ($friendRequest && $friendRequest->status !== 'accepted') {
+            return response()->json([
+                'message' => 'Invitation not accepted yet',
+            ], 403);
+        }
+
+        $file = $request->file('file');
+        $mime = $file->getMimeType();
+
+        // Déterminer le type automatiquement
+        $type = match(true) {
+            str_starts_with($mime, 'image/') => 'image',
+            str_starts_with($mime, 'video/') => 'video',
+            str_starts_with($mime, 'audio/') => 'audio',
+            default                          => 'file',
+        };
+
+        $path = $file->store("conversations/{$conversationId}", 'public');
+
+        $message = Message::create([
+            'conversation_id' => $conversationId,
+            'sender_id'       => $user->id,
+            'receiver_id'     => $otherUserId,
+            'message'         => $file->getClientOriginalName(),
+            'type'            => $type,
+            'file_url'        => $path,
+            'is_single_view'  => $request->is_single_view ?? false,
+        ]);
+
+        $conv->update([
+            'last_message_id' => $message->id,
+            'updated_at'      => now(),
+        ]);
+
+        $message->load(['sender.profile', 'reactions']);
+
+        broadcast(new MessageSent($message, $user))->toOthers();
+
+        return response()->json([
+            'message' => new MessageResource($message),
+        ], 201);
+    }
+
+
+
 }

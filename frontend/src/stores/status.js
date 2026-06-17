@@ -3,17 +3,19 @@ import { ref } from 'vue'
 import api from '../api/axios'
 
 export const useStatusStore = defineStore('status', () => {
-  const statuses = ref([])
-  const myStatuses = ref([])
+  const usersWithStatuses = ref([]) // Liste des utilisateurs avec leurs statuts
+  const myStatuses = ref([]) // Mes propres statuts
   const loading = ref(false)
   const error = ref(null)
+  const selectedUser = ref(null) // Utilisateur sélectionné pour voir ses statuts
 
+  // Récupérer tous les utilisateurs avec statuts
   const fetchStatuses = async () => {
     loading.value = true
     error.value = null
     try {
       const response = await api.get('/statuses')
-      statuses.value = response.data
+      usersWithStatuses.value = response.data
     } catch (err) {
       error.value = err.response?.data?.message || 'Erreur lors du chargement des statuts'
     } finally {
@@ -21,6 +23,7 @@ export const useStatusStore = defineStore('status', () => {
     }
   }
 
+  // Récupérer mes statuts
   const fetchMyStatuses = async () => {
     loading.value = true
     error.value = null
@@ -34,12 +37,31 @@ export const useStatusStore = defineStore('status', () => {
     }
   }
 
+  // Récupérer les statuts d'un utilisateur spécifique (et marquer comme vus)
+  const fetchUserStatuses = async (userId) => {
+    loading.value = true
+    error.value = null
+    try {
+      const response = await api.get(`/statuses/user/${userId}`)
+      selectedUser.value = response.data
+      // Mettre à jour la liste pour marquer les statuts comme vus
+      const userIndex = usersWithStatuses.value.findIndex(u => u.id === userId)
+      if (userIndex !== -1) {
+        usersWithStatuses.value[userIndex].has_unviewed = false
+      }
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Erreur lors du chargement des statuts'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Créer un statut
   const createStatus = async (data) => {
     loading.value = true
     error.value = null
     try {
       const response = await api.post('/statuses', data)
-      statuses.value.unshift(response.data)
       myStatuses.value.unshift(response.data)
       return response.data
     } catch (err) {
@@ -50,26 +72,20 @@ export const useStatusStore = defineStore('status', () => {
     }
   }
 
+  // Marquer un statut comme vu
   const viewStatus = async (statusId) => {
     try {
       const response = await api.post(`/statuses/${statusId}/view`)
-      const index = statuses.value.findIndex(s => s.id === statusId)
-      if (index !== -1) {
-        if (!statuses.value[index].views) {
-          statuses.value[index].views = []
-        }
-        statuses.value[index].views.push(response.data.view)
-      }
     } catch (err) {
       console.error('Erreur lors du marquage comme vu:', err)
     }
   }
 
+  // Supprimer un statut
   const deleteStatus = async (statusId) => {
     loading.value = true
     try {
       await api.delete(`/statuses/${statusId}`)
-      statuses.value = statuses.value.filter(s => s.id !== statusId)
       myStatuses.value = myStatuses.value.filter(s => s.id !== statusId)
     } catch (err) {
       error.value = err.response?.data?.message || 'Erreur lors de la suppression du statut'
@@ -79,15 +95,23 @@ export const useStatusStore = defineStore('status', () => {
     }
   }
 
+  // Réinitialiser l'utilisateur sélectionné
+  const clearSelectedUser = () => {
+    selectedUser.value = null
+  }
+
   return {
-    statuses,
+    usersWithStatuses,
     myStatuses,
     loading,
     error,
+    selectedUser,
     fetchStatuses,
     fetchMyStatuses,
+    fetchUserStatuses,
     createStatus,
     viewStatus,
-    deleteStatus
+    deleteStatus,
+    clearSelectedUser
   }
 })

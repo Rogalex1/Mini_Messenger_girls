@@ -12,7 +12,10 @@
           <span class="time">{{ formatTime(post.created_at) }}</span>
         </div>
       </div>
-      <button v-if="isOwner" @click="handleDelete" class="delete-btn">🗑️</button>
+      <div v-if="isOwner" class="post-actions-header">
+        <button @click="handleEdit" class="edit-btn">✏️</button>
+        <button @click="handleDelete" class="delete-btn">🗑️</button>
+      </div>
     </div>
 
     <div v-if="post.content" class="post-content">
@@ -31,9 +34,13 @@
       <button class="action-btn">
         💬 <span>{{ post.comments_count }}</span>
       </button>
-      <button class="action-btn">
-        📤
+      <button @click="handleShare" class="action-btn">
+        📤 <span v-if="post.shares_count > 0">{{ post.shares_count }}</span>
       </button>
+    </div>
+
+    <div class="post-stats">
+      <span class="stat-item">👁️ {{ post.views_count || 0 }} vues</span>
     </div>
 
     <div class="comments-section">
@@ -60,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const props = defineProps({
   post: {
@@ -77,9 +84,13 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['delete', 'like', 'add-comment', 'delete-comment'])
+const emit = defineEmits(['delete', 'like', 'add-comment', 'delete-comment', 'edit', 'share'])
 
 const newComment = ref('')
+const showEditModal = ref(false)
+const showShareModal = ref(false)
+const editContent = ref('')
+const editMediaUrl = ref('')
 
 const isLiked = computed(() => {
   return props.post.likes?.some(l => l.user_id === props.currentUserId) || false
@@ -113,6 +124,37 @@ const handleDelete = () => {
   emit('delete', props.post.id)
 }
 
+const handleEdit = () => {
+  editContent.value = props.post.content || ''
+  editMediaUrl.value = props.post.media_url || ''
+  showEditModal.value = true
+}
+
+const handleSaveEdit = () => {
+  const data = {
+    content: editContent.value,
+    media_url: editMediaUrl.value
+  }
+  emit('edit', { postId: props.post.id, data })
+  showEditModal.value = false
+}
+
+const handleShare = () => {
+  showShareModal.value = true
+}
+
+const copyLink = async () => {
+  try {
+    const url = window.location.href
+    await navigator.clipboard.writeText(url)
+    alert('Lien copié !')
+    showShareModal.value = false
+    emit('share', props.post.id)
+  } catch (err) {
+    console.error('Erreur lors de la copie:', err)
+  }
+}
+
 const handleLike = () => {
   emit('like', props.post.id)
 }
@@ -127,6 +169,20 @@ const handleAddComment = () => {
 const handleDeleteComment = (commentId) => {
   emit('delete-comment', { postId: props.post.id, commentId })
 }
+
+onMounted(() => {
+  // Increment views when post is shown
+  if (!props.isOwner) {
+    emit('view', props.post.id)
+  }
+})
+
+onMounted(() => {
+  // Increment views when post is shown
+  if (!props.isOwner) {
+    emit('view', props.post.id)
+  }
+})
 </script>
 
 <style scoped>
@@ -184,6 +240,12 @@ const handleDeleteComment = (commentId) => {
   color: var(--gc-gray-500);
 }
 
+.post-actions-header {
+  display: flex;
+  gap: var(--gc-spacing-xs);
+}
+
+.edit-btn,
 .delete-btn {
   background: none;
   border: none;
@@ -194,8 +256,20 @@ const handleDeleteComment = (commentId) => {
   padding: var(--gc-spacing-xs);
 }
 
+.edit-btn:hover,
 .delete-btn:hover {
   opacity: 1;
+}
+
+.post-stats {
+  padding-top: var(--gc-spacing-sm);
+  border-top: 1px solid var(--gc-gray-100);
+  margin-top: var(--gc-spacing-sm);
+}
+
+.stat-item {
+  font-size: var(--gc-font-size-xs);
+  color: var(--gc-gray-500);
 }
 
 .post-content {
@@ -298,6 +372,84 @@ const handleDeleteComment = (commentId) => {
   padding: var(--gc-spacing-xs) var(--gc-spacing-md);
   font-size: var(--gc-font-size-xs);
   flex-shrink: 0;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--gc-spacing-md);
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  border-radius: var(--gc-radius-xl);
+  padding: var(--gc-spacing-lg);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--gc-spacing-lg);
+}
+
+.modal-header h2 {
+  font-size: var(--gc-font-size-lg);
+  color: var(--gc-gray-800);
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: var(--gc-font-size-xl);
+  color: var(--gc-gray-500);
+  cursor: pointer;
+  padding: var(--gc-spacing-xs);
+  line-height: 1;
+}
+
+.modal-body .gc-input {
+  margin-bottom: var(--gc-spacing-sm);
+}
+
+.modal-footer {
+  display: flex;
+  gap: var(--gc-spacing-sm);
+  justify-content: flex-end;
+  margin-top: var(--gc-spacing-lg);
+}
+
+.share-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gc-spacing-sm);
+}
+
+.share-option {
+  width: 100%;
 }
 
 /* Tablet and Up */

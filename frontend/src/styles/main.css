@@ -37,6 +37,8 @@
   --gc-font-size-xl: 1.25rem;
   --gc-font-size-2xl: 1.5rem;
   --gc-font-size-3xl: 1.875rem;
+  --gc-font-size-4xl: 2.25rem;
+  --gc-font-size-5xl: 3rem;
 
   /* Espacement */
   --gc-spacing-xs: 0.25rem;
@@ -59,6 +61,11 @@
   /* Transitions */
   --gc-transition-fast: 150ms ease-in-out;
   --gc-transition-base: 300ms ease-in-out;
+  
+  /* Breakpoints */
+  --gc-breakpoint-mobile: 768px;
+  --gc-breakpoint-tablet: 1024px;
+  --gc-breakpoint-desktop-small: 1280px;
 }
 
 * {
@@ -67,11 +74,17 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: var(--gc-font-sans);
   background: linear-gradient(135deg, #fdf2f8 0%, #fff1f2 50%, #fef3c7 100%);
   color: var(--gc-gray-800);
   min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Glassmorphism Component */
@@ -92,6 +105,10 @@ body {
   transition: all var(--gc-transition-fast);
   border: none;
   font-size: var(--gc-font-size-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gc-spacing-xs);
 }
 
 .gc-btn-primary {
@@ -143,3 +160,170 @@ body {
 .gc-text-gray-500 { color: var(--gc-gray-500); }
 .gc-text-gray-700 { color: var(--gc-gray-700); }
 
+/* ================================
+   RESPONSIVE SYSTEM
+   ================================ */
+
+/* Mobile First Base Styles (Default) */
+.gc-container {
+  width: 100%;
+  padding-right: var(--gc-spacing-md);
+  padding-left: var(--gc-spacing-md);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.gc-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: calc(-0.5 * var(--gc-spacing-md));
+  margin-left: calc(-0.5 * var(--gc-spacing-md));
+}
+
+.gc-col {
+  flex: 1 0 0%;
+  padding-right: calc(0.5 * var(--gc-spacing-md));
+  padding-left: calc(0.5 * var(--gc-spacing-md));
+}
+
+/* Responsive Display Utilities */
+.gc-d-none { display: none !important; }
+.gc-d-block { display: block !important; }
+.gc-d-flex { display: flex !important; }
+.gc-d-inline-block { display: inline-block !important; }
+
+/* Flex Utilities */
+.gc-flex-wrap { flex-wrap: wrap; }
+.gc-flex-col { flex-direction: column; }
+.gc-align-center { align-items: center; }
+.gc-align-start { align-items: flex-start; }
+.gc-align-end { align-items: flex-end; }
+.gc-justify-center { justify-content: center; }
+.gc-justify-between { justify-content: space-between; }
+.gc-justify-around { justify-content: space-around; }
+.gc-justify-start { justify-content: flex-start; }
+.gc-justify-end { justify-content: flex-end; }
+.gc-gap-xs { gap: var(--gc-spacing-xs); }
+.gc-gap-sm { gap: var(--gc-spacing-sm); }
+.gc-gap-md { gap: var(--gc-spacing-md); }
+.gc-gap-lg { gap: var(--gc-spacing-lg); }
+.gc-gap-xl { gap: var(--gc-spacing-xl); }
+
+/* Grid Utilities */
+.gc-grid { display: grid; }
+.gc-grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.gc-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gc-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gc-grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Spacing Utilities */
+.gc-mt-xs { margin-top: var(--gc-spacing-xs); }
+.gc-mt-sm { margin-top: var(--gc-spacing-sm); }
+.gc-mt-md { margin-top: var(--gc-spacing-md); }
+.gc-mt-lg { margin-top: var(--gc-spacing-lg); }
+.gc-mt-xl { margin-top: var(--gc-spacing-xl); }
+.gc-mb-xs { margin-bottom: var(--gc-spacing-xs); }
+.gc-mb-sm { margin-bottom: var(--gc-spacing-sm); }
+.gc-mb-md { margin-bottom: var(--gc-spacing-md); }
+.gc-mb-lg { margin-bottom: var(--gc-spacing-lg); }
+.gc-mb-xl { margin-bottom: var(--gc-spacing-xl); }
+.gc-p-xs { padding: var(--gc-spacing-xs); }
+.gc-p-sm { padding: var(--gc-spacing-sm); }
+.gc-p-md { padding: var(--gc-spacing-md); }
+.gc-p-lg { padding: var(--gc-spacing-lg); }
+.gc-p-xl { padding: var(--gc-spacing-xl); }
+
+/* Text Utilities */
+.gc-text-center { text-align: center; }
+.gc-text-left { text-align: left; }
+.gc-text-right { text-align: right; }
+.gc-text-sm { font-size: var(--gc-font-size-sm); }
+.gc-text-lg { font-size: var(--gc-font-size-lg); }
+.gc-text-xl { font-size: var(--gc-font-size-xl); }
+.gc-text-2xl { font-size: var(--gc-font-size-2xl); }
+.gc-text-3xl { font-size: var(--gc-font-size-3xl); }
+.gc-text-4xl { font-size: var(--gc-font-size-4xl); }
+
+/* Width/Height Utilities */
+.gc-w-100 { width: 100%; }
+.gc-h-100 { height: 100%; }
+
+/* Image Utilities */
+.gc-img-fluid {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Breakpoint: Mobile (<768px) - Already base */
+/* Breakpoint: Tablet (>=768px) */
+@media (min-width: 768px) {
+  .gc-container {
+    max-width: 720px;
+  }
+  
+  .gc-md-d-none { display: none !important; }
+  .gc-md-d-block { display: block !important; }
+  .gc-md-d-flex { display: flex !important; }
+  .gc-md-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gc-md-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gc-md-grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Breakpoint: Small Desktop (>=1024px) */
+@media (min-width: 1024px) {
+  .gc-container {
+    max-width: 960px;
+  }
+  
+  .gc-lg-d-none { display: none !important; }
+  .gc-lg-d-block { display: block !important; }
+  .gc-lg-d-flex { display: flex !important; }
+  .gc-lg-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gc-lg-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gc-lg-grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Breakpoint: Large Desktop (>=1280px) */
+@media (min-width: 1280px) {
+  .gc-container {
+    max-width: 1200px;
+  }
+  
+  .gc-xl-d-none { display: none !important; }
+  .gc-xl-d-block { display: block !important; }
+  .gc-xl-d-flex { display: flex !important; }
+  .gc-xl-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gc-xl-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gc-xl-grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .gc-xl-grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* Hide scrollbar but keep functionality */
+.gc-scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.gc-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prevent text selection */
+.gc-no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Accessibility */
+.gc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
