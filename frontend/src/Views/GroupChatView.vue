@@ -18,12 +18,22 @@ const currentGroup = computed(() =>
   groupeStore.groupes.find(g => g.id === groupId.value)
 )
 
+const loadingMessages=ref(false)
+
 onMounted(async () => {
+  loadingMessages.value=true
+  try{
+
   await groupeStore.fetchGroupMessage(groupId.value)
+  }finally{
+
+  loadingMessages.value=false
+  }
 
   echo.private(`group.${groupId.value}`)
     .listen('.group.message.sent', (e) => {
       groupeStore.currentMessages.push(e)
+    console.log(e)
       nextTick(scrollToBottom)
     })
 
@@ -38,7 +48,7 @@ async function sendMessage() {
   if (!messageText.value.trim()) return
   const text = messageText.value.trim()
   messageText.value = ''
-  await groupeStore.sendGroupMessages(groupId.value, text)
+const msg=  await groupeStore.sendGroupMessages(groupId.value, text)
   nextTick(scrollToBottom)
 }
 
@@ -85,14 +95,14 @@ function initials(sender) {
 
     <!-- Messages -->
     <div class="gc-messages" ref="messagesContainer">
+<div v-if="loadingMessages" class="gc-loading">
+  <div class="spinner"></div>
+</div>
 
-      <div v-if="groupeStore.loading" class="gc-loading">
-        <div class="spinner"></div>
-      </div>
+<div v-else-if="groupeStore.currentMessages.length === 0" class="gc-empty-msg">
+  <p>Aucun message pour l'instant. Soyez le premier à écrire !</p>
+</div>
 
-      <div v-else-if="groupeStore.currentMessages.length === 0" class="gc-empty-msg">
-        <p>Aucun message pour l'instant. Soyez le premier à écrire !</p>
-      </div>
 
       <div
         v-for="msg in groupeStore.currentMessages"

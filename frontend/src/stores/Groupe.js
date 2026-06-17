@@ -78,6 +78,8 @@ export const useGroupeStore = defineStore('groupes', () => {
       const response = await api.post(`/groups/${groupId}/messages`, { message: content, type: 'text' })
       currentMessages.value.push(response.data.message)
       return response.data.message
+
+
     } catch (err) {
       error.value = "Impossible d'envoyer le message"
       console.error(err)
