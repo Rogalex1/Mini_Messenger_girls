@@ -19,9 +19,9 @@
         <div class="my-statuses">
           <div v-for="status in myStatuses" :key="status.id" class="my-status-item gc-card">
             <div v-if="status.caption" class="my-status-caption">{{ status.caption }}</div>
-            <div v-if="status.media_url" class="my-status-media">
-              <img v-if="status.type === 'image'" :src="status.media_url" alt="My status" class="media-thumb" />
-              <video v-else-if="status.type === 'video'" :src="status.media_url" class="media-thumb"></video>
+            <div v-if="status.media_url_full" class="my-status-media">
+              <img v-if="status.type === 'image'" :src="status.media_url_full" alt="My status" class="media-thumb" />
+              <video v-else-if="status.type === 'video'" :src="status.media_url_full" class="media-thumb"></video>
             </div>
             <button @click="deleteStatus(status.id)" class="delete-status-btn">🗑️</button>
           </div>
@@ -32,9 +32,9 @@
       <div v-if="recentStatuses.length > 0" class="section">
         <h2 class="section-title">Récents</h2>
         <div class="users-grid">
-          <div 
-            v-for="user in recentStatuses" 
-            :key="user.id" 
+          <div
+            v-for="user in recentStatuses"
+            :key="user.id"
             @click="viewUserStatuses(user.id)"
             class="user-item gc-card"
           >
@@ -55,9 +55,9 @@
       <div v-if="viewedStatuses.length > 0" class="section">
         <h2 class="section-title">Vus</h2>
         <div class="users-grid">
-          <div 
-            v-for="user in viewedStatuses" 
-            :key="user.id" 
+          <div
+            v-for="user in viewedStatuses"
+            :key="user.id"
             @click="viewUserStatuses(user.id)"
             class="user-item gc-card viewed"
           >
@@ -92,25 +92,51 @@
           <textarea
             v-model="newStatus.caption"
             placeholder="Qu'est-ce qui se passe ?"
-            class="gc-input"
-            rows="3"
+            class="gc-input caption-input"
+            rows="5"
           ></textarea>
-          <input
-            v-model="newStatus.media_url"
-            placeholder="URL du média (optionnel)"
-            class="gc-input"
-          />
-          <select v-model="newStatus.type" class="gc-input">
-            <option value="text">✍️ Texte</option>
-            <option value="image">🖼️ Image</option>
-            <option value="video">🎬 Vidéo</option>
-          </select>
+
+          <!-- Media Preview -->
+          <div v-if="mediaPreview" class="media-preview">
+            <img v-if="newStatus.type === 'image'" :src="mediaPreview" alt="Preview" class="preview-img" />
+            <video v-else-if="newStatus.type === 'video'" :src="mediaPreview" controls class="preview-video"></video>
+            <button @click="removeMedia" class="remove-media-btn">×</button>
+          </div>
+
+          <!-- File Input -->
+          <div class="file-input-wrapper">
+            <input
+              type="file"
+              ref="fileInput"
+              @change="handleFileChange"
+              accept="image/*,video/*"
+              class="file-input"
+            />
+            <button @click="triggerFileInput" class="gc-btn gc-btn-secondary upload-btn">
+              <span class="upload-icon">📷</span>
+              <span>Ajouter une image/vidéo</span>
+            </button>
+          </div>
+
+          <!-- Type Select -->
+          <div class="type-selector">
+            <button
+              v-for="type in statusTypes"
+              :key="type.value"
+              @click="selectType(type.value)"
+              class="type-btn"
+              :class="{ active: newStatus.type === type.value }"
+            >
+              <span class="type-icon">{{ type.icon }}</span>
+              <span class="type-label">{{ type.label }}</span>
+            </button>
+          </div>
         </div>
         <div class="modal-footer">
-          <button @click="showAddModal = false" class="gc-btn gc-btn-secondary">
+          <button @click="showAddModal = false" class="gc-btn gc-btn-secondary cancel-btn">
             Annuler
           </button>
-          <button @click="addStatus" class="gc-btn gc-btn-primary">
+          <button @click="addStatus" class="gc-btn gc-btn-primary publish-btn" :disabled="!newStatus.caption && !selectedFile">
             Publier
           </button>
         </div>
@@ -118,8 +144,8 @@
     </div>
 
     <!-- Viewer des statuts d'un utilisateur -->
-    <UserStatusViewer 
-      v-if="selectedUser" 
+    <UserStatusViewer
+      v-if="selectedUser"
       :user="selectedUser"
       @close="clearSelectedUser"
     />
@@ -131,17 +157,26 @@ import { ref, computed, onMounted } from 'vue'
 import { useStatusStore } from '@/stores/status'
 import { useAuthStore } from '@/stores/auth'
 import UserStatusViewer from '@/components/UserStatusViewer.vue'
+import api from '@/api/axios'
 
 const statusStore = useStatusStore()
 const authStore = useAuthStore()
 
 const loading = ref(true)
 const showAddModal = ref(false)
+const fileInput = ref(null)
+const selectedFile = ref(null)
+const mediaPreview = ref(null)
 const newStatus = ref({
   caption: '',
-  media_url: '',
   type: 'text'
 })
+
+const statusTypes = [
+  { value: 'text', icon: '✍️', label: 'Texte' },
+  { value: 'image', icon: '🖼️', label: 'Image' },
+  { value: 'video', icon: '🎬', label: 'Vidéo' }
+]
 
 const usersWithStatuses = computed(() => statusStore.usersWithStatuses)
 const myStatuses = computed(() => statusStore.myStatuses)
@@ -175,10 +210,65 @@ onMounted(async () => {
   loading.value = false
 })
 
+const triggerFileInput = () => {
+  fileInput.value.click()
+}
+
+const handleFileChange = (e) => {
+  const file = e.target.files[0]
+  if (file) {
+    selectedFile.value = file
+    
+    // Determine type
+    if (file.type.startsWith('image/')) {
+      newStatus.value.type = 'image'
+    } else if (file.type.startsWith('video/')) {
+      newStatus.value.type = 'video'
+    }
+    
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      mediaPreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+const removeMedia = () => {
+  selectedFile.value = null
+  mediaPreview.value = null
+  newStatus.value.type = 'text'
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+
+const selectType = (type) => {
+  newStatus.value.type = type
+  if (type === 'text') {
+    removeMedia()
+  }
+}
+
 const addStatus = async () => {
-  await statusStore.createStatus(newStatus.value)
+  const formData = new FormData()
+  formData.append('type', newStatus.value.type)
+  if (newStatus.value.caption) {
+    formData.append('caption', newStatus.value.caption)
+  }
+  if (selectedFile.value) {
+    formData.append('media', selectedFile.value)
+  }
+  
+  await api.post('/statuses', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  
+  await statusStore.fetchMyStatuses()
   showAddModal.value = false
-  newStatus.value = { caption: '', media_url: '', type: 'text' }
+  newStatus.value = { caption: '', type: 'text' }
+  removeMedia()
 }
 
 const deleteStatus = async (id) => {
@@ -440,8 +530,107 @@ const clearSelectedUser = () => {
   line-height: 1;
 }
 
-.modal-body .gc-input {
-  margin-bottom: var(--gc-spacing-sm);
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gc-spacing-md);
+}
+
+.caption-input {
+  resize: none;
+  min-height: 120px;
+  font-size: var(--gc-font-size-base);
+  line-height: 1.5;
+}
+
+.media-preview {
+  position: relative;
+  border-radius: var(--gc-radius-lg);
+  overflow: hidden;
+  background: var(--gc-gray-50);
+}
+
+.preview-img,
+.preview-video {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.remove-media-btn {
+  position: absolute;
+  top: var(--gc-spacing-sm);
+  right: var(--gc-spacing-sm);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  font-size: var(--gc-font-size-xl);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-input-wrapper {
+  width: 100%;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gc-spacing-xs);
+  padding: var(--gc-spacing-md);
+}
+
+.upload-icon {
+  font-size: var(--gc-font-size-lg);
+}
+
+.type-selector {
+  display: flex;
+  gap: var(--gc-spacing-xs);
+}
+
+.type-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gc-spacing-xs);
+  padding: var(--gc-spacing-md);
+  border-radius: var(--gc-radius-lg);
+  border: 2px solid var(--gc-gray-100);
+  background: white;
+  cursor: pointer;
+  transition: all var(--gc-transition-fast);
+}
+
+.type-btn:hover {
+  border-color: var(--gc-gray-200);
+}
+
+.type-btn.active {
+  border-color: var(--gc-primary);
+  background: var(--gc-accent);
+}
+
+.type-icon {
+  font-size: var(--gc-font-size-2xl);
+}
+
+.type-label {
+  font-size: var(--gc-font-size-xs);
+  color: var(--gc-gray-700);
+  font-weight: 600;
 }
 
 .modal-footer {
@@ -453,6 +642,11 @@ const clearSelectedUser = () => {
 
 .modal-footer .gc-btn {
   flex: 1;
+}
+
+.publish-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Tablet and Up */

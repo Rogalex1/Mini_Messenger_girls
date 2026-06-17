@@ -113,6 +113,21 @@ class User extends Authenticatable
         return $this->hasMany(Media::class);
     }
 
+    public function friends()
+    {
+        $friendIds = \App\Models\FriendRequest::where(function ($query) {
+            $query->where('sender_id', $this->id)
+                  ->orWhere('receiver_id', $this->id);
+        })->where('status', 'accepted')
+        ->get()
+        ->map(function ($req) {
+            return $req->sender_id === $this->id ? $req->receiver_id : $req->sender_id;
+        })
+        ->toArray();
+
+        return \App\Models\User::whereIn('id', $friendIds);
+    }
+
     // ─── Helpers ─────────────────────────────────────
 
     // Accès direct au nom complet sans charger le profil manuellement

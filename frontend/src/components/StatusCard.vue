@@ -19,9 +19,9 @@
       {{ status.caption }}
     </div>
 
-    <div v-if="status.media_url" class="status-media">
-      <img v-if="status.type === 'image'" :src="status.media_url" alt="Status media" class="media-img" loading="lazy" />
-      <video v-else-if="status.type === 'video'" :src="status.media_url" controls class="media-vid"></video>
+    <div v-if="status.media_url_full" class="status-media">
+      <img v-if="status.type === 'image'" :src="status.media_url_full" alt="Status media" class="media-img" loading="lazy" />
+      <video v-else-if="status.type === 'video'" :src="status.media_url_full" controls class="media-vid"></video>
     </div>
 
     <div class="status-footer">

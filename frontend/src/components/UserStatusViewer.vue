@@ -40,14 +40,14 @@
       <div class="status-content">
         <div v-if="user.statuses[currentIndex]?.type === 'image'" class="status-media">
           <img 
-            :src="user.statuses[currentIndex]?.media_url" 
+            :src="user.statuses[currentIndex]?.media_url_full" 
             alt="Status" 
             class="media-full"
           />
         </div>
         <div v-else-if="user.statuses[currentIndex]?.type === 'video'" class="status-media">
           <video 
-            :src="user.statuses[currentIndex]?.media_url" 
+            :src="user.statuses[currentIndex]?.media_url_full" 
             class="media-full" 
             controls 
             autoplay
