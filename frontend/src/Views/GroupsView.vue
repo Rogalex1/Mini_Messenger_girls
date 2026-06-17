@@ -214,6 +214,25 @@ const getGradientColor = (id) => {
   ]
   return colors[id % colors.length]
 }
+
+
+const isDropdownOpen = ref(false)
+// const closeDropdown = () => { isDropdownOpen.value = false }
+
+
+// directives: {
+//   clickOutside: {
+//     mounted(el, binding) {
+//       el._clickOutsideHandler = (event) => {
+//         if (!el.contains(event.target)) binding.value();
+//       };
+//       document.addEventListener('click', el._clickOutsideHandler);
+//     },
+//     unmounted(el) {
+//       document.removeEventListener('click', el._clickOutsideHandler);
+//     },
+//   },
+// },
 </script>
 
 <template>
@@ -304,29 +323,54 @@ const getGradientColor = (id) => {
               <textarea v-model="newGroup.description" placeholder="De quoi parle ce groupe ?" class="gc-input"></textarea>
             </div>0
             
-            <div class="form-group">
-              <label>Inviter des amis</label>
-              <div class="search-container">
-                <input v-model="searchUser" placeholder="Rechercher parmi vos amis..." class="gc-input search-input">
-              </div>
-              <div class="user-selection-list">
-                <div v-if="filteredFriends.length === 0" class="empty-list-info">
-                  Aucun ami trouvé.
-                </div>
-                <div v-for="user in filteredFriends" :key="user.id" 
-                     @click="toggleMemberSelection(user.id)"
-                     :class="['user-select-item', newGroup.member_ids.includes(user.id) ? 'selected' : '']">
-                  <div class="user-avatar-mini" :style="{ background: `linear-gradient(135deg, #ec4899 0%, #db2777 100%)` }">
-                    {{ user.username.charAt(0).toUpperCase() }}
-                  </div>
-                  <div class="user-info-mini">
-                    <span class="username">{{ user.username }}</span>
-                    <span class="email">{{ user.email }}</span>
-                  </div>
-                  <div class="check-icon" v-if="newGroup.member_ids.includes(user.id)">✓</div>
-                </div>
-              </div>
-            </div>
+              <!-- le select des amis -->
+           <div class="form-group">
+  <label>Inviter des amis</label>
+
+  <div class="custom-select" v-click.outside>
+    <!-- Le "select" fermé -->
+    <div class="select-trigger gc-input" @click="isDropdownOpen = !isDropdownOpen">
+      <span v-if="newGroup.member_ids.length === 0" class="placeholder">
+        Sélectionner des amis...
+      </span>
+      <span v-else class="selected-summary">
+        {{ newGroup.member_ids.length }} ami(s) sélectionné(s)
+      </span>
+      <span class="arrow" :class="{ open: isDropdownOpen }">▾</span>
+    </div>
+
+    <!-- Le panneau déroulant -->
+    <div v-if="isDropdownOpen" class="select-dropdown">
+      <input
+        v-model="searchUser"
+        placeholder="Rechercher parmi vos amis..."
+        class="gc-input search-input"
+        @click.stop
+      >
+
+      <div class="user-selection-list">
+        <div v-if="filteredFriends.length === 0" class="empty-list-info">
+          Aucun ami trouvé.
+        </div>
+        <div
+          v-for="user in filteredFriends"
+          :key="user.id"
+          @click="toggleMemberSelection(user.id)"
+          :class="['user-select-item', newGroup.member_ids.includes(user.id) ? 'selected' : '']"
+        >
+          <div class="user-avatar-mini" :style="{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)' }">
+            {{ user.username.charAt(0).toUpperCase() }}
+          </div>
+          <div class="user-info-mini">
+            <span class="username">{{ user.username }}</span>
+            <span class="email">{{ user.email }}</span>
+          </div>
+          <div class="check-icon" v-if="newGroup.member_ids.includes(user.id)">✓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
           </div>
 
           <div class="modal-footer">
@@ -762,4 +806,39 @@ const getGradientColor = (id) => {
 
 .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
 .list-enter-from, .list-leave-to { opacity: 0; transform: translateY(-10px); }
+
+
+
+.custom-select {
+  position: relative;
+}
+.select-trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.placeholder {
+  color: #9ca3af;
+}
+.arrow {
+  transition: transform 0.2s;
+}
+.arrow.open {
+  transform: rotate(180deg);
+}
+.select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  padding: 8px;
+  z-index: 20;
+  max-height: 300px;
+  overflow-y: auto;
+}
 </style>
